@@ -1,0 +1,9 @@
+.gitignore
+**/target/
+*.log
+Cargo.lock
+
+polkadot-launch/**
+!polkadot-launch/dev-mode-config.json
+
+./*.json

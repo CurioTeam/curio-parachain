@@ -1,0 +1,60 @@
+relaychain:
+  image: parity/polkadot:v0.9.28
+  chain: rococo-local
+  runtimeGenesisConfig:
+    configuration:
+      config:
+        validation_upgrade_cooldown: 10
+        validation_upgrade_delay: 10
+  env:
+    RUST_LOG: parachain::candidate-backing=trace,parachain::candidate-selection=trace,parachain::pvf=debug,parachain::provisioner=trace
+  flags:
+    - --rpc-methods=unsafe
+    - --wasm-execution=compiled
+    - --execution=wasm
+  nodes:
+    - name: alice
+      wsPort: 9944 # default ws port number is `9944 + global_node_index`
+      rpcPort: 9933 # default rpc port number is `9933 + global_node_index`
+      port: 30333 # default libp2p port number is `30333 + global_node_index`
+      flags: # additional CLI flags for this node
+        - --force-authoring
+    - name: bob
+    - name: charlie
+
+parachains:
+- image: /home/nikita/projects/curio-parachain/target/release/curio-parachain-node
+  chain:
+    base: /home/nikita/projects/curio-parachain/testnet-raw.json
+    collators:
+      - alice
+      - bob
+    sudo: alice
+  id: 2000
+  parachain: true
+  flags:
+    - --rpc-methods=unsafe
+    - --force-authoring
+    - --wasm-execution=compiled
+    - --execution=wasm
+  relaychainFlags:
+    - --wasm-execution=compiled
+    - --execution=wasm
+  env:
+    RUST_LOG: sc_basic_authorship=trace,cumulus-consensus=trace,cumulus-collator=trace,collator_protocol=trace,collation_generation=trace,aura=debug
+  volumePath: /curio/data
+  nodes:
+  - wsPort: 9947
+    rpcPort: 9937
+    port: 30337
+    flags:
+    - --alice
+    env:
+      RUST_LOG: aura=debug
+  - wsPort: 9948
+    rpcPort: 9938
+    port: 30338
+    flags:
+    - --bob
+    env:
+      RUST_LOG: aura=debug
