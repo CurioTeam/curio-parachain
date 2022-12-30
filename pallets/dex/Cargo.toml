@@ -3,26 +3,27 @@ name = "pallet-dex"
 version = "1.0.0"
 authors = ["Curio Capital AG"]
 edition = "2021"
+license = "GPL-3.0"
 
 [dependencies]
-serde = { version = "1.0.136", optional = true }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["max-encoded-len"] }
-scale-info = { version = "2.1", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library/", default-features = false }
-support = { package = "module-support", path = "../../modules/support", default-features = false }
-primitives = { package = "curio-primitives", path = "../../primitives/curio", default-features = false }
+serde = { workspace = true, optional = true }
+codec = { package = "parity-scale-codec", workspace = true, features = ["max-encoded-len"] }
+scale-info = { workspace = true, features = ["derive"] }
+sp-core.workspace = true
+sp-runtime.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+frame-benchmarking.workspace = true
+sp-std.workspace = true
+orml-traits.workspace = true
+module-support.workspace = true
+primitives.workspace = true
 
 [dev-dependencies]
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library/", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.26", default-features = false }
+orml-tokens.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+pallet-balances.workspace = true
 
 [features]
 default = ["std"]
@@ -37,7 +38,7 @@ std = [
 	"sp-std/std",
 	"orml-tokens/std",
 	"orml-traits/std",
-	"support/std",
+	"module-support/std",
 	"primitives/std"
 ]
 try-runtime = ["frame-support/try-runtime"]

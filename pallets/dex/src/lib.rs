@@ -28,7 +28,7 @@
 //!
 //! ## Overview
 //!
-//! Built-in decentralized exchange modules in Acala network, the swap
+//! Built-in decentralized exchange modules in Curio-parachain, the swap
 //! mechanism refers to the design of Uniswap V2. In addition to being used for
 //! trading, DEX also participates in CDP liquidation, which is faster than
 //! liquidation by auction when the liquidity is sufficient. And providing
@@ -53,7 +53,7 @@ use sp_runtime::{
 	ArithmeticError, DispatchError, DispatchResult, FixedPointNumber, RuntimeDebug, SaturatedConversion,
 };
 use sp_std::{prelude::*, vec};
-use support::{DEXIncentives, DEXManager, ExchangeRate, Ratio, SwapLimit};
+use module_support::{DEXIncentives, DEXManager, ExchangeRate, Ratio, SwapLimit};
 
 #[cfg(test)]
 mod mock;
@@ -105,7 +105,7 @@ pub mod module {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Currency for transfer currencies
 		type Currency: MultiCurrencyExtended<Self::AccountId, CurrencyId = CurrencyId, Balance = Balance>;
@@ -133,7 +133,7 @@ pub mod module {
 		type DEXIncentives: DEXIncentives<Self::AccountId, CurrencyId, Balance>;
 
 		/// The origin which may list, enable or disable trading pairs.
-		type ListingOrigin: EnsureOrigin<Self::Origin>;
+		type ListingOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The extended provisioning blocks since the `not_before` of provisioning.
 		#[pallet::constant]

@@ -1,0 +1,68 @@
+[package]
+authors = ["Curio Capital AG"]
+edition = "2021"
+license = "GPL-3.0"
+version = "1.9.0"
+name = "parachain-staking"
+
+[dev-dependencies]
+pallet-aura.workspace = true
+pallet-timestamp.workspace = true
+sp-consensus-aura.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+
+[dependencies]
+# External dependencies
+
+codec = { package = "parity-scale-codec", workspace = true, default-features = false, features = ["derive"] }
+log.workspace = true
+scale-info = { workspace = true, features = ["derive"] }
+serde = { workspace = true, optional = true, features = ["derive"] }
+
+# Internal dependencies
+
+runtime-api-staking = {path = "../../runtime-api/staking", default-features = false}
+
+# Substrate dependencies
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-authorship.workspace = true
+pallet-balances.workspace = true
+pallet-session.workspace = true
+sp-runtime.workspace = true
+sp-staking = {git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31"}
+sp-std.workspace = true
+
+# Benchmarking dependencies
+frame-benchmarking = { workspace = true, optional = true }
+[features]
+default = ["std"]
+runtime-benchmarks = [
+  "frame-benchmarking",
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
+]
+std = [
+  "codec/std",
+  "frame-support/std",
+  "frame-system/std",
+  "runtime-api-staking/std",
+  "log/std",
+  "pallet-authorship/std",
+  "pallet-balances/std",
+  "pallet-session/std",
+  "scale-info/std",
+  "serde",
+  "sp-runtime/std",
+  "sp-staking/std",
+  "sp-std/std",
+  "sp-io/std",
+  "sp-core/std",
+  "sp-consensus-aura/std",
+  "pallet-timestamp/std",
+  "pallet-aura/std"
+]
+try-runtime = [
+  "frame-support/try-runtime",
+]

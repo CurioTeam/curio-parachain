@@ -12,7 +12,9 @@
 
 This project is part of the CurioDAO ecosystem that extends CurioDAO's DeFi products in the field of real world asset tokenization on the [Polkadot](https://polkadot.network) network protocol.  
 
-Curio Parachain is a network built on [Substrate](https://substrate.io) and includes native runtime modules to provide tokenization process of real world assets as fungible or non-fungible tokens and mechanisms for trading these assets. Parachain runtime supports certain types of assets and powers the following decentralized applications by CurioDAO: [Capital DEX](https://capitaldex.exchange), [Rollapp](https://rollapp.store), [Curio Stablecoin Protocol](https://curioinvest.com/curio-stablecoin).
+Curio Parachain is a network built on [Substrate](https://substrate.io) and includes native runtime modules to provide tokenization process of real world assets as fungible or non-fungible tokens and mechanisms for trading these assets. Parachain runtime supports certain types of assets and powers the following decentralized applications by CurioDAO: [Capital DEX](https://capitaldex.exchange), [Rollapp](https://rollapp.store), [Curio Stablecoin Protocol](https://curioinvest.com/curio-stablecoin).  
+
+Curio Parachain uses [KILT's](https://www.kilt.io) dPoS consensus. Explore parachain-staking pallet doc [here](pallets/parachain-staking/README.md).
 
 ### Assets
 
@@ -22,7 +24,7 @@ Curio Parachain will also use other tokens of CurioDAO ecosystem:
 - **Curio Stable Coin (CSC)** - a stable coin (ERC-20) backed by tokenized real world assets in the [Curio Stablecoin Protocol](https://curioinvest.com/curio-stablecoin) on the Ethereum network. In the future, this token will be transferable between Ethereum and Curio Parachain;
 - **Fungible Security Tokens** (like ERC-20 standard) backed by real world assets, such as Curio’s [CT1 token](https://etherscan.io/token/0x4F01887Cbd397a676921985639cEF79398204Cf0) backed by Ferrari F12tdf car;
 - **Non-fungible Security Tokens** (like ERC-721 standard) backed by real world assets, such as [collection of wines](https://rollapp.store/collection/curio-wines/owned) tokenized by Curio;
-- **Fractionalized Non-fungible Security Tokens** (like ERC-1155 standard) backed by real world assets, such as [Mercedes-AMG GTS NFT](https://rollapp.store/token/0x6884eF328EA1862E69beD5aA30FfAfD4ed096Ce8:99326131137483886891004264430325786609158860882489678491178031342521990250497) by Curio;
+- **Fractionalized Non-fungible Security Tokens** (like ERC-1155/ERC-1633 standard) backed by real world assets, such as [Mercedes-AMG GTS NFT](https://rollapp.store/token/0x6884eF328EA1862E69beD5aA30FfAfD4ed096Ce8:99326131137483886891004264430325786609158860882489678491178031342521990250497) by Curio;
 - **Wrapped Security Tokens** associated to original Security Tokens (fungible, non-fungible and fractionalized), e.g. [wCT1 token](https://etherscan.io/token/0x46683747b55c4a0ff783b1a502ce682eb819eb75) by Curio.
 
 The Curio Parachain will support other tokens, such as DOT and tokens from other projects in the Polkadot ecosystem.
@@ -44,7 +46,12 @@ Capital DEX runs on Curio Parachain as a native runtime module consisting of a s
 
 👉 *Visit the official website [capitaldex.exchange](https://capitaldex.exchange).*  
 👉 *Visit the [Capital DEX analytics](https://info.capitaldex.exchange) application.*  
-👉 *[DEX API docs](docs/DEX_API.md).*
+👉 *[DEX API docs](docs/DEX_API.md).*  
+
+#### Pallets:
+
+👉 *[DEX pallet](pallets/dex/README.md).*  
+👉 *[Currencies pallet](pallets/currencies/README.md).*
 
 ---
 
@@ -54,7 +61,7 @@ Capital DEX runs on Curio Parachain as a native runtime module consisting of a s
 
 Rollapp is a platform for tokenization of real world assets as non-fungible and fractionalized tokens and a markeplace on Curio Parachain.
 
-Rollapp has a set of modules for implementing the NFT trading logic (ERC-721 and ERC-1155 standards) and additional features such as royalties, NFT redeem logic. Real world assets tokenized as NFTs are trading on Rollapp: assets owned by CurioDAO (a user can buy and become the owner of an asset, and co-ownership of an asset - art, a car) and also users assets. Using Rollapp, any user can tokenize their physical goods - watches, collectible game cartridges, cars, art, music, real estate and others, and next sell it on Rollapp and others NFT markets. NFTs on Rollapp can be bought or sold for CGT tokens.
+Rollapp has a set of modules for implementing the NFT trading logic (ERC-721, ERC-1155, ERC-1633 standards) and additional features such as royalties, NFT redeem logic. Real world assets tokenized as NFTs are trading on Rollapp: assets owned by CurioDAO (a user can buy and become the owner of an asset, and co-ownership of an asset - art, a car) and also users assets. Using Rollapp, any user can tokenize their physical goods - watches, collectible game cartridges, cars, art, music, real estate and others, and next sell it on Rollapp and others NFT markets. NFTs on Rollapp can be bought or sold for CGT tokens.
 
 Assets such as wines, game cartridges, sneakers that CurioDAO has tokenized and put for sale can be redeemed as physical goods. This process requires the user to complete the KYC procedure (using [CurioInvest account](https://curioinvest.com/register)). In the future, a system (working like Escrow) will be developed where users will be able to sell their tokenized goods to other users as the sale of NFT and delivery of the physical goods.
 
@@ -66,7 +73,12 @@ Rollapp will run on Curio Parachain as a native runtime module consisting of a s
 - asset tokenization as NFT using Security NFTs and Wrapping modules;
 - redeem functionality for NFTs that can be redeemed as physical goods.
 
-👉 *Visit the official website [rollapp.store](https://rollapp.store).*
+👉 *Visit the official website [rollapp.store](https://rollapp.store).*  
+
+#### Pallets:
+
+👉 *[Common pallet](pallets/common/README.md).*  
+👉 *[Re-Fungible pallet](pallets/refungible/README.md).*
 
 ---
 

@@ -1,0 +1,211 @@
+[package]
+name = "curio-testnet-runtime"
+version = "1.0.0"
+authors = ["Curio Capital AG"]
+description = "A Curio Parachain Testnet Runtime."
+edition = "2021"
+license = "GPL-3.0"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[build-dependencies]
+substrate-wasm-builder.workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", workspace = true, features = ["derive"] }
+hex-literal.workspace = true
+log.workspace = true
+scale-info = { workspace = true, features = ["derive"] }
+serde = { workspace = true, optional = true, features = ["derive"] }
+smallvec.workspace = true
+static_assertions.workspace = true
+
+# Substrate
+frame-benchmarking = { workspace = true, optional = true }
+frame-executive.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+frame-system-benchmarking = { workspace = true, optional = true }
+frame-system-rpc-runtime-api.workspace = true
+frame-try-runtime = { workspace = true, optional = true }
+pallet-aura.workspace = true
+pallet-authorship.workspace = true
+pallet-balances.workspace = true
+pallet-bounties.workspace = true
+pallet-collective.workspace = true
+pallet-democracy.workspace = true
+pallet-elections-phragmen.workspace = true
+pallet-identity.workspace = true
+pallet-indices.workspace = true
+pallet-membership.workspace = true
+pallet-multisig.workspace = true
+pallet-preimage.workspace = true
+pallet-proxy.workspace = true
+pallet-randomness-collective-flip.workspace = true
+pallet-scheduler.workspace = true
+pallet-session.workspace = true
+pallet-society.workspace = true
+pallet-sudo.workspace = true
+pallet-timestamp.workspace = true
+pallet-tips.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-treasury.workspace = true
+pallet-utility.workspace = true
+pallet-vesting.workspace = true
+sp-api.workspace = true
+sp-block-builder.workspace = true
+sp-consensus-aura.workspace = true
+sp-core.workspace = true
+sp-inherents.workspace = true
+sp-io.workspace = true
+sp-offchain.workspace = true
+sp-runtime.workspace = true
+sp-session.workspace = true
+sp-std.workspace = true
+sp-transaction-pool.workspace = true
+sp-version.workspace = true
+
+# Polkadot
+pallet-xcm.workspace = true
+polkadot-parachain.workspace = true
+polkadot-runtime-common.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+
+# Cumulus
+cumulus-pallet-aura-ext.workspace = true
+cumulus-pallet-dmp-queue.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-session-benchmarking.workspace = true
+cumulus-pallet-xcm.workspace = true
+cumulus-pallet-xcmp-queue.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-timestamp.workspace = true
+cumulus-primitives-utility.workspace = true
+pallet-collator-selection.workspace = true
+parachain-info.workspace = true
+
+# Curio
+primitives.workspace = true
+pallet-common.workspace = true
+pallet-refungible.workspace = true
+pallet-whitelist.workspace = true
+parachain-staking.workspace = true
+runtime-api-staking.workspace = true
+
+# ORML
+# orml-rewards.workspace = true
+#orml-tokens.workspace = true
+#orml-traits.workspace = true
+#orml-benchmarking = { workspace = true, optional = true }
+
+[features]
+default = [
+	"std",
+]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"serde",
+	"cumulus-pallet-aura-ext/std",
+	"cumulus-pallet-dmp-queue/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-xcm/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-core/std",
+	"cumulus-primitives-timestamp/std",
+	"cumulus-primitives-utility/std",
+	"frame-executive/std",
+	"frame-support/std",
+	"frame-system-rpc-runtime-api/std",
+	"frame-system/std",
+	"pallet-aura/std",
+	"pallet-authorship/std",
+	"pallet-balances/std",
+	"pallet-bounties/std",
+	"pallet-collator-selection/std",
+	"pallet-collective/std",
+	"pallet-common/std",
+	"pallet-democracy/std",
+	"pallet-elections-phragmen/std",
+	"pallet-identity/std",
+	"pallet-indices/std",
+	"pallet-membership/std",
+	"pallet-multisig/std",
+	"pallet-preimage/std",
+	"pallet-proxy/std",
+	"pallet-randomness-collective-flip/std",
+	"pallet-refungible/std",
+	"pallet-scheduler/std",
+	"pallet-session/std",
+	"pallet-society/std",
+	"pallet-sudo/std",
+	"pallet-timestamp/std",
+	"pallet-tips/std",
+	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-transaction-payment/std",
+	"pallet-treasury/std",
+	"pallet-utility/std",
+	"pallet-vesting/std",
+	"pallet-whitelist/std",
+	"pallet-xcm/std",
+	"parachain-info/std",
+	"parachain-staking/std",
+	"polkadot-parachain/std",
+	"polkadot-runtime-common/std",
+	"runtime-api-staking/std",
+	"sp-api/std",
+	"sp-block-builder/std",
+	"sp-consensus-aura/std",
+	"sp-core/std",
+	"sp-inherents/std",
+	"sp-io/std",
+	"sp-offchain/std",
+	"sp-runtime/std",
+	"sp-session/std",
+	"sp-std/std",
+	"sp-transaction-pool/std",
+	"sp-version/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-bounties/runtime-benchmarks",
+	"pallet-collective/runtime-benchmarks",
+	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-democracy/runtime-benchmarks",
+	"pallet-elections-phragmen/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
+	"pallet-indices/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-tips/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"pallet-vesting/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachain-staking/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+]
+
+try-runtime = [
+	"frame-executive/try-runtime",
+	"frame-try-runtime",
+]

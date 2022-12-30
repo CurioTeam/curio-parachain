@@ -1,0 +1,44 @@
+[package]
+name = "pallet-refungible"
+version = "0.2.5"
+license = "GPLv3"
+edition = "2021"
+
+[dependencies]
+scale-info = { workspace = true, features = ["derive"] }
+derivative = { workspace = true, features = ["use_core"] }
+codec = { package = "parity-scale-codec", workspace = true, features = ["derive"] }
+
+frame-support.workspace = true
+frame-system.workspace = true
+
+pallet-balances.workspace = true
+
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+sp-core.workspace = true
+
+pallet-common.workspace = true
+pallet-whitelist.workspace = true
+
+primitives.workspace = true
+collection-primitives.workspace = true
+mock-support.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-balances/std",
+    "pallet-common/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-core/std",
+    "sp-io/std",
+    "mock-support/std",
+    "primitives/std",
+    "collection-primitives/std",
+]
+try-runtime = ["frame-support/try-runtime"]

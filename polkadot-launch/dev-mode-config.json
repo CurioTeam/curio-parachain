@@ -1,33 +1,96 @@
 {
 	"relaychain": {
-		"bin": "../../polkadot/target/release/polkadot",
+		"bin": "/home/nikita/.cargo/bin/polkadot",
 		"chain": "rococo-local",
 		"nodes": [
 			{
 				"name": "alice",
 				"wsPort": 9944,
-				"port": 30444
+				"port": 30444,
+				"flags": [
+					"--unsafe-ws-external",
+					"--unsafe-rpc-external",
+					"--rpc-external",
+					"--ws-external",
+					"--rpc-cors=all",
+					"--rpc-methods=Unsafe"
+				]
 			},
 			{
 				"name": "bob",
 				"wsPort": 9955,
-				"port": 30555
+				"port": 30555,
+				"flags": [
+					"--unsafe-ws-external",
+					"--unsafe-rpc-external",
+					"--rpc-external",
+					"--ws-external",
+					"--rpc-cors=all",
+					"--rpc-methods=Unsafe"
+				]
+			},
+			{
+				"name": "eve",
+				"wsPort": 9966,
+				"port": 30666,
+				"flags": [
+					"--unsafe-ws-external",
+					"--unsafe-rpc-external",
+					"--rpc-external",
+					"--ws-external",
+					"--rpc-cors=all",
+					"--rpc-methods=Unsafe"
+				]
+			},
+			{
+				"name": "dave",
+				"wsPort": 9977,
+				"port": 30777,
+				"flags": [
+					"--unsafe-ws-external",
+					"--unsafe-rpc-external",
+					"--rpc-external",
+					"--ws-external",
+					"--rpc-cors=all",
+					"--rpc-methods=Unsafe"
+				]
 			}
 		]
 	},
 	"parachains": [
 		{
 			"bin": "../target/release/curio-parachain-node",
-			"id": "1000",
-			"balance": "1000000000000000000000",
-			"chain": "dev",
+			"id": "2000",
+			"chain": "/home/nikita/projects/curio-parachain/testnet.json",
 			"nodes": [
 				{
 					"wsPort": 9988,
 					"name": "alice",
 					"port": 31200,
 					"flags": [
+						"--unsafe-ws-external",
+						"--unsafe-rpc-external",
+						"--rpc-external",
+						"--ws-external",
+						"--rpc-cors=all",
+						"--rpc-methods=Unsafe",
 						"--rpc-port=11111",
+						"--",
+						"--execution=wasm"
+					]
+				},
+				{
+					"wsPort": 9989,
+					"name": "bob",
+					"port": 31201,
+					"flags": [
+						"--unsafe-ws-external",
+						"--unsafe-rpc-external",
+						"--rpc-external",
+						"--ws-external",
+						"--rpc-cors=all",
+						"--rpc-methods=Unsafe",
+						"--rpc-port=11112",
 						"--",
 						"--execution=wasm"
 					]

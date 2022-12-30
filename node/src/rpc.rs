@@ -30,11 +30,10 @@
 
 use std::sync::Arc;
 // Curio
-use curio_primitives::{AccountId, Balance, Index as Nonce};
-use parachain_node_runtime::{opaque::Block};
+use primitives::{AccountId, Balance, Block, Index as Nonce};
 
 use sc_client_api::AuxStore;
-pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
+pub use sc_rpc::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;

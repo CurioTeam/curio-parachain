@@ -30,7 +30,7 @@ use super::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::{
 	AccountId, AdaptedBasicCurrency, CouncilAccount, Currencies, Alice, Bob, Eva,
-	DustAccount, Event, ExtBuilder, NativeCurrency, Origin, PalletBalances, Runtime, System, Tokens,
+	DustAccount, RuntimeEvent, ExtBuilder, NativeCurrency, RuntimeOrigin, PalletBalances, Runtime, System, Tokens,
 	DOT, ID_1, NATIVE_CURRENCY_ID, X_TOKEN_ID,
 };
 use sp_runtime::{
@@ -275,14 +275,14 @@ fn update_balance_call_should_work() {
 		.build()
 		.execute_with(|| {
 			assert_ok!(Currencies::update_balance(
-				Origin::root(),
+				RuntimeOrigin::root(),
 				Alice::get(),
 				NATIVE_CURRENCY_ID,
 				-10
 			));
 			assert_eq!(NativeCurrency::free_balance(&Alice::get()), 90);
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &Alice::get()), 100);
-			assert_ok!(Currencies::update_balance(Origin::root(), Alice::get(), X_TOKEN_ID, 10));
+			assert_ok!(Currencies::update_balance(RuntimeOrigin::root(), Alice::get(), X_TOKEN_ID, 10));
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &Alice::get()), 110);
 		});
 }
@@ -306,13 +306,13 @@ fn call_event_should_work() {
 			assert_ok!(Currencies::transfer(Some(Alice::get()).into(), Bob::get(), X_TOKEN_ID, 50));
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &Alice::get()), 50);
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &Bob::get()), 150);
-			System::assert_has_event(Event::Tokens(tokens::Event::Transfer {
+			System::assert_has_event(RuntimeEvent::Tokens(tokens::Event::Transfer {
 				currency_id: X_TOKEN_ID,
 				from: Alice::get(),
 				to: Bob::get(),
 				amount: 50,
 			}));
-			System::assert_has_event(Event::Currencies(crate::Event::Transferred {
+			System::assert_has_event(RuntimeEvent::Currencies(crate::Event::Transferred {
 				currency_id: X_TOKEN_ID,
 				from: Alice::get(),
 				to: Bob::get(),
@@ -328,13 +328,13 @@ fn call_event_should_work() {
 			));
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &Alice::get()), 40);
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &Bob::get()), 160);
-			System::assert_has_event(Event::Tokens(tokens::Event::Transfer {
+			System::assert_has_event(RuntimeEvent::Tokens(tokens::Event::Transfer {
 				currency_id: X_TOKEN_ID,
 				from: Alice::get(),
 				to: Bob::get(),
 				amount: 10,
 			}));
-			System::assert_has_event(Event::Currencies(crate::Event::Transferred {
+			System::assert_has_event(RuntimeEvent::Currencies(crate::Event::Transferred {
 				currency_id: X_TOKEN_ID,
 				from: Alice::get(),
 				to: Bob::get(),
@@ -347,7 +347,7 @@ fn call_event_should_work() {
 				100
 			));
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &Alice::get()), 140);
-			System::assert_last_event(Event::Tokens(tokens::Event::Deposited {
+			System::assert_last_event(RuntimeEvent::Tokens(tokens::Event::Deposited {
 				currency_id: X_TOKEN_ID,
 				who: Alice::get(),
 				amount: 100,
@@ -359,7 +359,7 @@ fn call_event_should_work() {
 				20
 			));
 			assert_eq!(Currencies::free_balance(X_TOKEN_ID, &Alice::get()), 120);
-			System::assert_last_event(Event::Tokens(tokens::Event::Withdrawn {
+			System::assert_last_event(RuntimeEvent::Tokens(tokens::Event::Withdrawn {
 				currency_id: X_TOKEN_ID,
 				who: Alice::get(),
 				amount: 20,
@@ -642,7 +642,7 @@ fn fungible_mutate_trait_should_work() {
 				&Alice::get(),
 				1000
 			));
-			System::assert_last_event(Event::Balances(pallet_balances::Event::Deposit {
+			System::assert_last_event(RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 				who: Alice::get(),
 				amount: 1000,
 			}));
@@ -668,7 +668,7 @@ fn fungible_mutate_trait_should_work() {
 				&Alice::get(),
 				1000
 			));
-			System::assert_last_event(Event::Tokens(tokens::Event::Deposited {
+			System::assert_last_event(RuntimeEvent::Tokens(tokens::Event::Deposited {
 				currency_id: X_TOKEN_ID,
 				who: Alice::get(),
 				amount: 1000,
@@ -710,7 +710,7 @@ fn fungible_mutate_trait_should_work() {
 				&Alice::get(),
 				1000
 			));
-			System::assert_last_event(Event::Balances(pallet_balances::Event::Withdraw {
+			System::assert_last_event(RuntimeEvent::Balances(pallet_balances::Event::Withdraw {
 				who: Alice::get(),
 				amount: 1000,
 			}));
@@ -736,7 +736,7 @@ fn fungible_mutate_trait_should_work() {
 				&Alice::get(),
 				1000
 			));
-			System::assert_last_event(Event::Tokens(tokens::Event::Withdrawn {
+			System::assert_last_event(RuntimeEvent::Tokens(tokens::Event::Withdrawn {
 				currency_id: X_TOKEN_ID,
 				who: Alice::get(),
 				amount: 1000,
@@ -797,12 +797,12 @@ fn fungible_transfer_trait_should_work() {
 				10000,
 				true
 			));
-			System::assert_has_event(Event::Balances(pallet_balances::Event::Transfer {
+			System::assert_has_event(RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 				from: Alice::get(),
 				to: Bob::get(),
 				amount: 10000,
 			}));
-			System::assert_has_event(Event::Currencies(crate::Event::Transferred {
+			System::assert_has_event(RuntimeEvent::Currencies(crate::Event::Transferred {
 				currency_id: NATIVE_CURRENCY_ID,
 				from: Alice::get(),
 				to: Bob::get(),
@@ -840,13 +840,13 @@ fn fungible_transfer_trait_should_work() {
 				10000,
 				true
 			));
-			System::assert_has_event(Event::Tokens(tokens::Event::Transfer {
+			System::assert_has_event(RuntimeEvent::Tokens(tokens::Event::Transfer {
 				currency_id: X_TOKEN_ID,
 				from: Alice::get(),
 				to: Bob::get(),
 				amount: 10000,
 			}));
-			System::assert_has_event(Event::Currencies(crate::Event::Transferred {
+			System::assert_has_event(RuntimeEvent::Currencies(crate::Event::Transferred {
 				currency_id: X_TOKEN_ID,
 				from: Alice::get(),
 				to: Bob::get(),
@@ -902,7 +902,7 @@ fn fungible_unbalanced_trait_should_work() {
 				&Alice::get(),
 				80000
 			));
-			System::assert_last_event(Event::Balances(pallet_balances::Event::BalanceSet {
+			System::assert_last_event(RuntimeEvent::Balances(pallet_balances::Event::BalanceSet {
 				who: Alice::get(),
 				free: 80000,
 				reserved: 0,
@@ -929,7 +929,7 @@ fn fungible_unbalanced_trait_should_work() {
 				&Alice::get(),
 				80000
 			));
-			System::assert_last_event(Event::Tokens(tokens::Event::BalanceSet {
+			System::assert_last_event(RuntimeEvent::Tokens(tokens::Event::BalanceSet {
 				currency_id: X_TOKEN_ID,
 				who: Alice::get(),
 				free: 80000,
@@ -970,7 +970,7 @@ fn fungible_unbalanced_trait_should_work() {
 			);
 			<Currencies as fungibles::Unbalanced<_>>::set_total_issuance(X_TOKEN_ID, 80000);
 			assert_eq!(<Currencies as fungibles::Inspect<_>>::total_issuance(X_TOKEN_ID), 80000);
-			System::assert_last_event(Event::Tokens(tokens::Event::TotalIssuanceSet {
+			System::assert_last_event(RuntimeEvent::Tokens(tokens::Event::TotalIssuanceSet {
 				currency_id: X_TOKEN_ID,
 				amount: 80000,
 			}));
@@ -1052,7 +1052,7 @@ fn fungible_inspect_hold_and_hold_trait_should_work() {
 				&Alice::get(),
 				20000
 			));
-			System::assert_last_event(Event::Tokens(tokens::Event::Reserved {
+			System::assert_last_event(RuntimeEvent::Tokens(tokens::Event::Reserved {
 				currency_id: X_TOKEN_ID,
 				who: Alice::get(),
 				amount: 20000,
@@ -1151,7 +1151,7 @@ fn fungible_inspect_hold_and_hold_trait_should_work() {
 				<Currencies as fungibles::MutateHold<_>>::release(X_TOKEN_ID, &Alice::get(), 10000, true),
 				Ok(10000)
 			);
-			System::assert_last_event(Event::Tokens(tokens::Event::Unreserved {
+			System::assert_last_event(RuntimeEvent::Tokens(tokens::Event::Unreserved {
 				currency_id: X_TOKEN_ID,
 				who: Alice::get(),
 				amount: 10000,
@@ -1290,7 +1290,7 @@ fn fungible_inspect_hold_and_hold_trait_should_work() {
 				),
 				Ok(2000)
 			);
-			System::assert_last_event(Event::Tokens(tokens::Event::ReserveRepatriated {
+			System::assert_last_event(RuntimeEvent::Tokens(tokens::Event::ReserveRepatriated {
 				currency_id: X_TOKEN_ID,
 				from: Alice::get(),
 				to: Bob::get(),
@@ -1407,16 +1407,16 @@ fn sweep_dust_tokens_works() {
 		let accounts = vec![Bob::get(), Eva::get(), Alice::get()];
 
 		assert_noop!(
-			Currencies::sweep_dust(Origin::signed(Bob::get()), DOT, accounts.clone()),
+			Currencies::sweep_dust(RuntimeOrigin::signed(Bob::get()), DOT, accounts.clone()),
 			DispatchError::BadOrigin
 		);
 
 		assert_ok!(Currencies::sweep_dust(
-			Origin::signed(CouncilAccount::get()),
+			RuntimeOrigin::signed(CouncilAccount::get()),
 			DOT,
 			accounts
 		));
-		System::assert_last_event(Event::Currencies(crate::Event::DustSwept {
+		System::assert_last_event(RuntimeEvent::Currencies(crate::Event::DustSwept {
 			currency_id: DOT,
 			who: Bob::get(),
 			amount: 1,
@@ -1486,16 +1486,16 @@ fn sweep_dust_native_currency_works() {
 		let accounts = vec![Bob::get(), Eva::get(), Alice::get()];
 
 		assert_noop!(
-			Currencies::sweep_dust(Origin::signed(Bob::get()), NATIVE_CURRENCY_ID, accounts.clone()),
+			Currencies::sweep_dust(RuntimeOrigin::signed(Bob::get()), NATIVE_CURRENCY_ID, accounts.clone()),
 			DispatchError::BadOrigin
 		);
 
 		assert_ok!(Currencies::sweep_dust(
-			Origin::signed(CouncilAccount::get()),
+			RuntimeOrigin::signed(CouncilAccount::get()),
 			NATIVE_CURRENCY_ID,
 			accounts
 		));
-		System::assert_last_event(Event::Currencies(crate::Event::DustSwept {
+		System::assert_last_event(RuntimeEvent::Currencies(crate::Event::DustSwept {
 			currency_id: NATIVE_CURRENCY_ID,
 			who: Bob::get(),
 			amount: 1,

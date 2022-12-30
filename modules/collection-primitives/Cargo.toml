@@ -1,0 +1,34 @@
+[package]
+name = "collection-primitives"
+version = "1.0.0"
+authors = ["Curio Capital AG"]
+edition = "2021"
+license = "GPL-3.0"
+
+[dependencies]
+scale-info = { workspace = true, features = ["derive"] }
+codec = { package = "parity-scale-codec", workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive"], default-features = false, optional = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-core.workspace = true
+sp-std.workspace = true
+sp-runtime.workspace = true
+derivative = { workspace = true, features = ["use_core"] }
+bondrewd = { version = "0.1.14", features = ["derive"], default-features = false }
+
+[features]
+default = ["std"]
+std = [
+  "serde1",
+  "serde/std",
+  "codec/std",
+  "frame-system/std",
+  "frame-support/std",
+  "sp-runtime/std",
+  "sp-core/std",
+  "sp-std/std",
+]
+serde1 = ["serde/alloc"]
+limit-testing = []
+runtime-benchmarks = []

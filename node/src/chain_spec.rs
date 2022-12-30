@@ -22,27 +22,102 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 use cumulus_primitives_core::ParaId;
-use curio_primitives::{AccountId, Balance, CurrencyId, TradingPair, TokenSymbol};
-use parachain_node_runtime::{
-	AuraId, CouncilConfig, DOLLARS, DemocracyConfig, ElectionsConfig, IndicesConfig,
-	Signature, SocietyConfig, TechnicalCommitteeConfig
+use primitives::{
+	AccountId, AuraId, Balance, CurrencyId, DOLLARS,
+	Signature, TokenSymbol
 };
-use module_support::token_unit;
-use pallet_parachain_staking::{InflationInfo, Range};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::{
-	Perbill,
+	Perquintill,
 	traits::{IdentifyAccount, Verify}
 };
 use sc_telemetry::TelemetryEndpoints;
 
-/// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec =
-	sc_service::GenericChainSpec<parachain_node_runtime::GenesisConfig, Extensions>;
+#[cfg(feature = "curio-mainnet-runtime")]
+pub use curio_mainnet_runtime as default_runtime;
 
+#[cfg(all(not(feature = "curio-mainnet-runtime"), feature = "curio-testnet-runtime"))]
+pub use curio_testnet_runtime as default_runtime;
+
+#[cfg(all(not(feature = "curio-mainnet-runtime"), not(feature = "curio-testnet-runtime")))]
+pub use curio_devnet_runtime as default_runtime;
+
+/// The `ChainSpec` parameterized for the mainnet runtime.
+#[cfg(feature = "curio-mainnet-runtime")]
+pub type MainnetChainSpec = sc_service::GenericChainSpec<curio_mainnet_runtime::GenesisConfig, Extensions>;
+
+/// The `ChainSpec` parameterized for the quartz runtime.
+#[cfg(feature = "curio-testnet-runtime")]
+pub type TestnetChainSpec = sc_service::GenericChainSpec<curio_testnet_runtime::GenesisConfig, Extensions>;
+
+/// The `ChainSpec` parameterized for the opal runtime.
+pub type DevnetChainSpec = sc_service::GenericChainSpec<curio_devnet_runtime::GenesisConfig, Extensions>;
+
+#[cfg(feature = "curio-mainnet-runtime")]
+pub type DefaultChainSpec = MainnetChainSpec;
+
+#[cfg(all(not(feature = "curio-mainnet-runtime"), feature = "curio-testnet-runtime"))]
+pub type DefaultChainSpec = TestnetChainSpec;
+
+#[cfg(all(not(feature = "curio-mainnet-runtime"), not(feature = "curio-testnet-runtime")))]
+pub type DefaultChainSpec = DevnetChainSpec;
+
+pub enum RuntimeId {
+	#[cfg(feature = "curio-mainnet-runtime")]
+	CurioMainnet,
+
+	#[cfg(feature = "curio-testnet-runtime")]
+	CurioTestnet,
+
+	CurioDevnet,
+	Unknown(String),
+}
+
+pub trait RuntimeIdentification {
+	fn runtime_id(&self) -> RuntimeId;
+}
+
+impl RuntimeIdentification for Box<dyn sc_service::ChainSpec> {
+	fn runtime_id(&self) -> RuntimeId {
+		#[cfg(feature = "curio-mainnet-runtime")]
+		if self.id().starts_with("curio_mainnet") || self.id().starts_with("main") {
+			return RuntimeId::CurioMainnet;
+		}
+
+		#[cfg(feature = "curio-testnet-runtime")]
+		if self.id().starts_with("curio_testnet") || self.id().starts_with("test") {
+			return RuntimeId::CurioTestnet;
+		}
+
+		if self.id().starts_with("curio_devnet") || self.id() == "dev" || self.id() == "local_testnet" {
+			return RuntimeId::CurioDevnet;
+		}
+
+		RuntimeId::Unknown(self.id().into())
+	}
+}
+
+pub enum ServiceId {
+	Prod,
+	Dev,
+}
+
+pub trait ServiceIdentification {
+	fn service_id(&self) -> ServiceId;
+}
+
+impl ServiceIdentification for Box<dyn sc_service::ChainSpec> {
+	fn service_id(&self) -> ServiceId {
+		if self.id().ends_with("dev") {
+			ServiceId::Dev
+		} else {
+			ServiceId::Prod
+		}
+	}
+}
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
@@ -90,48 +165,22 @@ where
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn node_session_keys(keys: AuraId) -> parachain_node_runtime::SessionKeys {
-	parachain_node_runtime::SessionKeys { aura: keys }
-}
-
-pub fn inflation_config(blocks_per_round: u32) -> InflationInfo<Balance> {
-	fn to_round_inflation(annual: Range<Perbill>, blocks_per_round: u32) -> Range<Perbill> {
-		use pallet_parachain_staking::inflation::{
-			perbill_annual_to_perbill_round, BLOCKS_PER_YEAR,
-		};
-		perbill_annual_to_perbill_round(annual, BLOCKS_PER_YEAR / blocks_per_round)
-	}
-
-	let annual = Range {
-		min: Perbill::from_percent(4),
-		ideal: Perbill::from_percent(5),
-		max: Perbill::from_percent(5),
-	};
-
-	InflationInfo {
-		// staking expectations
-		expect: Range { 
-			min: 0_020_000,
-			ideal: 0_600_000,
-			max: 0_100_000
-		},
-		annual,
-		round: to_round_inflation(annual, blocks_per_round),
-	}
+pub fn node_session_keys(keys: AuraId) -> default_runtime::SessionKeys {
+	default_runtime::SessionKeys { aura: keys }
 }
 
 const TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
-pub fn development_config() -> ChainSpec {
+pub fn development_config() -> DefaultChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "CGT".into());
 	properties.insert("tokenDecimals".into(), 18.into());
 	properties.insert("ss58Format".into(), 42.into());
 
-	ChainSpec::from_genesis(
+	DefaultChainSpec::from_genesis(
 		// Name
-		"Development",
+		"Curio Development",
 		// ID
 		"dev",
 		ChainType::Development,
@@ -175,22 +224,22 @@ pub fn development_config() -> ChainSpec {
 		None,
 		Some(properties),
 		Extensions {
-			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
+			relay_chain: "rococo-dev".into(), // You MUST set this to the correct network!
 			para_id: 2000,
 		},
 	)
 }
 
-pub fn local_testnet_config() -> ChainSpec {
+pub fn local_testnet_config() -> DefaultChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "CGT".into());
 	properties.insert("tokenDecimals".into(), 18.into());
 	properties.insert("ss58Format".into(), 42.into());
 
-	ChainSpec::from_genesis(
+	DefaultChainSpec::from_genesis(
 		// Name
-		"Local Testnet",
+		"Curio Local Testnet",
 		// ID
 		"local_testnet",
 		ChainType::Local,
@@ -251,7 +300,7 @@ fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Option<Vec<AccountId>>,
 	id: ParaId
-) -> parachain_node_runtime::GenesisConfig {
+) -> default_runtime::GenesisConfig {
 	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(|| {
         vec![
             get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -270,38 +319,24 @@ fn testnet_genesis(
     });
     let num_endowed_accounts = endowed_accounts.len();
 
-	let liquidity_provider = endowed_accounts[0].clone();
-
+	#[cfg(all(not(feature = "curio-mainnet-runtime"), not(feature = "curio-testnet-runtime")))]
 	let endowed_currencies: Vec<(CurrencyId, Balance)> = vec![
 		(CurrencyId::Token(TokenSymbol::DOT), 100000000000000),
 		(CurrencyId::Token(TokenSymbol::QTZ), 10000000000000000000000),
 		(CurrencyId::Token(TokenSymbol::ETH), 10000000000000000000000),
 	];
 
-	let initial_enabled_trading_pairs: Vec<TradingPair> = endowed_currencies
-		.iter()
-		.cloned()
-		.map(|(currency_id, _)| TradingPair::from_currency_ids(CurrencyId::Token(TokenSymbol::CGT), currency_id).unwrap())
-		.collect();
-
-	let initial_liquidity = initial_enabled_trading_pairs
-		.iter()
-		.cloned()
-		.map(|trading_pair| (trading_pair, (1000 * token_unit(trading_pair.first()), 1000 * token_unit(trading_pair.second()))))
-		.collect();
-
-    const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
-    const STASH: Balance = 500_000 * DOLLARS;
-
-	parachain_node_runtime::GenesisConfig {
-		dex: parachain_node_runtime::DexConfig {
+	default_runtime::GenesisConfig {
+		#[cfg(not(feature = "curio-mainnet-runtime"))]
+		whitelist: default_runtime::WhitelistConfig::default(),
+		#[cfg(all(not(feature = "curio-mainnet-runtime"), not(feature = "curio-testnet-runtime")))]
+		dex: default_runtime::DexConfig {
 			initial_listing_trading_pairs: vec![],
-			initial_added_liquidity_pools: vec![
-				(liquidity_provider, initial_liquidity)
-			],
-			initial_enabled_trading_pairs: initial_enabled_trading_pairs
+			initial_added_liquidity_pools: vec![],
+			initial_enabled_trading_pairs: vec![]
 		},
-		tokens: parachain_node_runtime::TokensConfig {
+		#[cfg(all(not(feature = "curio-mainnet-runtime"), not(feature = "curio-testnet-runtime")))]
+		tokens: default_runtime::TokensConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
@@ -314,21 +349,21 @@ fn testnet_genesis(
 				)
 				.collect(),
 		},
-		system: parachain_node_runtime::SystemConfig {
-			code: parachain_node_runtime::WASM_BINARY
+		system: default_runtime::SystemConfig {
+			code: default_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!")
 				.to_vec(),
 		},
-		balances: parachain_node_runtime::BalancesConfig {
+		balances: default_runtime::BalancesConfig {
 			balances: endowed_accounts
 			.iter()
 			.cloned()
-			.map(|k| (k, ENDOWMENT))
+			.map(|k| (k, 10_000_000 * DOLLARS))
 			.collect(),
 		},
-		parachain_info: parachain_node_runtime::ParachainInfoConfig { parachain_id: id },
-		indices: IndicesConfig { indices: vec![] },
-		session: parachain_node_runtime::SessionConfig {
+		parachain_info: default_runtime::ParachainInfoConfig { parachain_id: id },
+		indices: default_runtime::IndicesConfig { indices: vec![] },
+		session: default_runtime::SessionConfig {
 			keys: invulnerables
 				.iter()
 				.cloned()
@@ -341,17 +376,17 @@ fn testnet_genesis(
 				})
 				.collect(),
 		},
-		democracy: DemocracyConfig::default(),
-        elections: ElectionsConfig {
+		democracy: default_runtime::DemocracyConfig::default(),
+        elections: default_runtime::ElectionsConfig {
             members: endowed_accounts
                 .iter()
                 .take((num_endowed_accounts + 1) / 2)
                 .cloned()
-                .map(|member| (member, STASH))
+                .map(|member| (member, 500_000 * DOLLARS))
                 .collect(),
         },
-        council: CouncilConfig::default(),
-        technical_committee: TechnicalCommitteeConfig {
+        council: default_runtime::CouncilConfig::default(),
+        technical_committee: default_runtime::TechnicalCommitteeConfig {
             members: endowed_accounts
                 .iter()
                 .take((num_endowed_accounts + 1) / 2)
@@ -359,11 +394,9 @@ fn testnet_genesis(
                 .collect(),
             phantom: Default::default(),
         },
-		//im_online: ImOnlineConfig { keys: vec![] },
-        //authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
 		technical_membership: Default::default(),
         treasury: Default::default(),
-        society: SocietyConfig {
+        society: default_runtime::SocietyConfig {
             members: endowed_accounts
                 .iter()
                 .take((num_endowed_accounts + 1) / 2)
@@ -373,23 +406,41 @@ fn testnet_genesis(
             max_members: 999,
         },
         vesting: Default::default(),
-        parachain_staking: parachain_node_runtime::ParachainStakingConfig {
-			candidates: invulnerables
-				.iter()
-				.cloned()
-				.map(|(acc, _)| (acc, parachain_node_runtime::MinCollatorStk::get()))
-				.collect(),
-			delegations: vec![],
-			inflation_config: inflation_config(parachain_node_runtime::DefaultBlocksPerRound::get()),
+        parachain_staking: default_runtime::ParachainStakingConfig {
+			stakers: vec![
+				(
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					None,
+					2 * default_runtime::MinCollatorStake::get(),
+				),
+				(
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					None,
+					2 * default_runtime::MinCollatorStake::get(),
+				)
+			],
+			inflation_config: default_runtime::InflationInfo::new(
+				default_runtime::BLOCKS_PER_YEAR,
+				// max collator staking rate
+				Perquintill::from_percent(60),
+				// collator reward rate
+				Perquintill::from_percent(10),
+				// max delegator staking rate
+				Perquintill::from_percent(11),
+				// delegator reward rate
+				Perquintill::from_percent(8)
+			),
+			max_candidate_stake: 200_000 * DOLLARS,
 		},
 		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
 		// of this.
 		aura: Default::default(),
 		aura_ext: Default::default(),
 		parachain_system: Default::default(),
-		polkadot_xcm: parachain_node_runtime::PolkadotXcmConfig {
+		polkadot_xcm: default_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
-		sudo: parachain_node_runtime::SudoConfig { key: Some(root_key) },
+		#[cfg(not(feature = "curio-mainnet-runtime"))]
+		sudo: default_runtime::SudoConfig { key: Some(root_key) },
 	}
 }

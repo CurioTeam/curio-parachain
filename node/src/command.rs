@@ -21,6 +21,13 @@
 
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
+use crate::{
+	chain_spec::{
+		self, RuntimeId, RuntimeIdentification, default_runtime,
+	},
+	cli::{Cli, RelayChainCli, Subcommand},
+	service::{new_partial, start_parachain_node},
+};
 use std::net::SocketAddr;
 
 use codec::Encode;
@@ -28,7 +35,6 @@ use cumulus_client_cli::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use parachain_node_runtime::{Block, RuntimeApi};
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, RuntimeVersion, SharedParams, SubstrateCli,
@@ -40,24 +46,55 @@ use sc_service::{
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
 
-use crate::{
-	chain_spec,
-	cli::{Cli, RelayChainCli, Subcommand},
-	service::{new_partial, TemplateRuntimeExecutor},
-};
+use primitives::Block;
 
-fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
+#[cfg(feature = "curio-mainnet-runtime")]
+use crate::service::MainnetRuntimeExecutor;
+
+#[cfg(feature = "curio-testnet-runtime")]
+use crate::service::TestnetRuntimeExecutor;
+
+use crate::service::{DevnetRuntimeExecutor, DefaultRuntimeExecutor};
+
+fn parachain_node_name() -> String {
+	"Curio".into()
+}
+
+macro_rules! no_runtime_err {
+	($chain_name:expr) => {
+		format!(
+			"No runtime valid runtime was found for chain {}",
+			$chain_name
+		)
+	};
+}
+
+fn load_spec(id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 	Ok(match id {
 		"dev" => Box::new(chain_spec::development_config()),
-		"template-rococo" => Box::new(chain_spec::local_testnet_config()),
 		"" | "local" => Box::new(chain_spec::local_testnet_config()),
-		path => Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+		path => {
+			let path = std::path::PathBuf::from(path);
+			let spec = Box::new(chain_spec::DevnetChainSpec::from_json_file(path.clone())?)
+				as Box<dyn sc_service::ChainSpec>;
+
+			match spec.runtime_id() {
+				#[cfg(feature = "curio-mainnet-runtime")]
+				RuntimeId::CurioMainnet => Box::new(chain_spec::MainnetChainSpec::from_json_file(path)?),
+
+				#[cfg(feature = "curio-testnet-runtime")]
+				RuntimeId::CurioTestnet => Box::new(chain_spec::TestnetChainSpec::from_json_file(path)?),
+
+				RuntimeId::CurioDevnet => spec,
+				RuntimeId::Unknown(chain) => return Err(no_runtime_err!(chain)),
+			}
+		}
 	})
 }
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Parachain Collator node".into()
+		format!("{} Node", parachain_node_name())
 	}
 
 	fn impl_version() -> String {
@@ -66,10 +103,11 @@ impl SubstrateCli for Cli {
 
 	fn description() -> String {
 		format!(
-			"Parachain Collator node\n\nThe command-line arguments provided first will be \
+			"{} Node\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relay chain node.\n\n\
-		{} <parachain-args> -- <relay-chain-args>",
+		to the relaychain node.\n\n\
+		{} [parachain-args] -- [relaychain-args]",
+			parachain_node_name(),
 			Self::executable_name()
 		)
 	}
@@ -90,14 +128,23 @@ impl SubstrateCli for Cli {
 		load_spec(id)
 	}
 
-	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&parachain_node_runtime::VERSION
+	fn native_runtime_version(spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+		match spec.runtime_id() {
+			#[cfg(feature = "curio-mainnet-runtime")]
+			RuntimeId::CurioMainnet => &curio_mainnet_runtime::VERSION,
+
+			#[cfg(feature = "curio-testnet-runtime")]
+			RuntimeId::CurioTestnet => &curio_testnet_runtime::VERSION,
+
+			RuntimeId::CurioDevnet => &curio_devnet_runtime::VERSION,
+			RuntimeId::Unknown(chain) => panic!("{}", no_runtime_err!(chain)),
+		}
 	}
 }
 
 impl SubstrateCli for RelayChainCli {
 	fn impl_name() -> String {
-		"Parachain Collator node".into()
+		format!("{} Node", parachain_node_name())
 	}
 
 	fn impl_version() -> String {
@@ -106,11 +153,11 @@ impl SubstrateCli for RelayChainCli {
 
 	fn description() -> String {
 		format!(
-			"Parachain Collator node\n\nThe command-line arguments provided first will be \
-		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relay chain node.\n\n\
-		{} <parachain-args> -- <relay-chain-args>",
-			Self::executable_name()
+			"{} Node\n\nThe command-line arguments provided first will be \
+			passed to the parachain node, while the arguments provided after -- will be passed \
+			to the relaychain node.\n\n\
+			parachain-collator [parachain-args] -- [relaychain-args]",
+			parachain_node_name()
 		)
 	}
 
@@ -135,22 +182,76 @@ impl SubstrateCli for RelayChainCli {
 	}
 }
 
-macro_rules! construct_async_run {
-	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
-		let runner = $cli.create_runner($cmd)?;
-		runner.async_run(|$config| {
+macro_rules! async_run_with_runtime {
+	(
+		$runtime_api:path, $executor:path,
+		$runner:ident, $components:ident, $cli:ident, $cmd:ident, $config:ident,
+		$( $code:tt )*
+	) => {
+		$runner.async_run(|$config| {
 			let $components = new_partial::<
-				RuntimeApi,
-				TemplateRuntimeExecutor,
-				_
+				$runtime_api, $executor, _
 			>(
 				&$config,
 				crate::service::parachain_build_import_queue,
 			)?;
 			let task_manager = $components.task_manager;
+
 			{ $( $code )* }.map(|v| (v, task_manager))
 		})
+	};
+}
+
+macro_rules! construct_async_run {
+	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
+		let runner = $cli.create_runner($cmd)?;
+
+		match runner.config().chain_spec.runtime_id() {
+			#[cfg(feature = "curio-mainnet-runtime")]
+			RuntimeId::CurioMainnet => async_run_with_runtime!(
+				curio_mainnet_runtime::RuntimeApi, MainnetRuntimeExecutor,
+				runner, $components, $cli, $cmd, $config, $( $code )*
+			),
+
+			#[cfg(feature = "curio-testnet-runtime")]
+			RuntimeId::CurioTestnet => async_run_with_runtime!(
+				curio_testnet_runtime::RuntimeApi, TestnetRuntimeExecutor,
+				runner, $components, $cli, $cmd, $config, $( $code )*
+			),
+
+			RuntimeId::CurioDevnet => async_run_with_runtime!(
+				curio_devnet_runtime::RuntimeApi, DevnetRuntimeExecutor,
+				runner, $components, $cli, $cmd, $config, $( $code )*
+			),
+
+			RuntimeId::Unknown(chain) => Err(no_runtime_err!(chain).into())
+		}
 	}}
+}
+
+macro_rules! start_node_using_chain_runtime {
+	($start_parachain_node_fn:ident($config:expr $(, $($args:expr),+)?) $($code:tt)*) => {
+		match $config.chain_spec.runtime_id() {
+			#[cfg(feature = "curio-mainnet-runtime")]
+			RuntimeId::CurioMainnet => $start_parachain_node_fn::<
+				curio_mainnet_runtime::RuntimeApi,
+				MainnetRuntimeExecutor,
+			>($config $(, $($args),+)?) $($code)*,
+
+			#[cfg(feature = "curio-testnet-runtime")]
+			RuntimeId::CurioTestnet => $start_parachain_node_fn::<
+				curio_testnet_runtime::RuntimeApi,
+				TestnetRuntimeExecutor,
+			>($config $(, $($args),+)?) $($code)*,
+
+			RuntimeId::CurioDevnet => $start_parachain_node_fn::<
+				curio_devnet_runtime::RuntimeApi,
+				DevnetRuntimeExecutor,
+			>($config $(, $($args),+)?) $($code)*,
+
+			RuntimeId::Unknown(chain) => Err(no_runtime_err!(chain).into()),
+		}
+	};
 }
 
 /// Parse command line arguments into service configuration.
@@ -194,7 +295,9 @@ pub fn run() -> Result<()> {
 			runner.sync_run(|config| {
 				let polkadot_cli = RelayChainCli::new(
 					&config,
-					[RelayChainCli::executable_name()].iter().chain(cli.relay_chain_args.iter()),
+					[RelayChainCli::executable_name()]
+					.iter()
+					.chain(cli.relay_chain_args.iter()),
 				);
 
 				let polkadot_config = SubstrateCli::create_configuration(
@@ -228,21 +331,30 @@ pub fn run() -> Result<()> {
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) =>
 					if cfg!(feature = "runtime-benchmarks") {
-						runner.sync_run(|config| cmd.run::<Block, TemplateRuntimeExecutor>(config))
+						runner.sync_run(|config| cmd.run::<Block, DefaultRuntimeExecutor>(config))
 					} else {
 						Err("Benchmarking wasn't enabled when building the node. \
 					You can enable it with `--features runtime-benchmarks`."
 							.into())
 					},
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-					let partials = new_partial::<RuntimeApi, TemplateRuntimeExecutor, _>(
+					let partials = new_partial::<default_runtime::RuntimeApi, DefaultRuntimeExecutor, _>(
 						&config,
 						crate::service::parachain_build_import_queue,
 					)?;
 					cmd.run(partials.client)
 				}),
+				#[cfg(not(feature = "runtime-benchmarks"))]
+				BenchmarkCmd::Storage(_) =>
+					return Err(sc_cli::Error::Input(
+						"Compile with --features=runtime-benchmarks \
+						to enable storage benchmarks."
+							.into(),
+					)
+					.into()),
+				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-					let partials = new_partial::<RuntimeApi, TemplateRuntimeExecutor, _>(
+					let partials = new_partial::<default_runtime::RuntimeApi, DefaultRuntimeExecutor, _>(
 						&config,
 						crate::service::parachain_build_import_queue,
 					)?;
@@ -251,9 +363,12 @@ pub fn run() -> Result<()> {
 
 					cmd.run(config, partials.client.clone(), db, storage)
 				}),
-				BenchmarkCmd::Overhead(_) => Err("Unsupported benchmarking command".into()),
 				BenchmarkCmd::Machine(cmd) =>
 					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
+				// NOTE: this allows the Client to leniently implement
+				// new benchmark commands without requiring a companion MR.
+				#[allow(unreachable_patterns)]
+				_ => Err("Benchmarking sub-command unsupported".into()),
 			}
 		},
 		Some(Subcommand::TryRuntime(cmd)) => {
@@ -267,7 +382,7 @@ pub fn run() -> Result<()> {
 						.map_err(|e| format!("Error: {:?}", e))?;
 
 				runner.async_run(|config| {
-					Ok((cmd.run::<Block, TemplateRuntimeExecutor>(config), task_manager))
+					Ok((cmd.run::<Block, DefaultRuntimeExecutor>(config), task_manager))
 				})
 			} else {
 				Err("Try-runtime must be enabled by `--features try-runtime`.".into())
@@ -287,9 +402,11 @@ pub fn run() -> Result<()> {
 					None
 				};
 
-				let para_id = chain_spec::Extensions::try_get(&*config.chain_spec)
+				let extensions = chain_spec::Extensions::try_get(&*config.chain_spec);
+
+				let para_id = extensions
 					.map(|e| e.para_id)
-					.ok_or_else(|| "Could not find parachain ID in chain-spec.")?;
+					.ok_or("Could not find parachain ID in chain-spec.")?;
 
 				let polkadot_cli = RelayChainCli::new(
 					&config,
@@ -301,7 +418,7 @@ pub fn run() -> Result<()> {
 				let parachain_account =
 					AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account_truncating(&id);
 
-				let state_version = Cli::native_runtime_version(&config.chain_spec).state_version();
+				let state_version = RelayChainCli::native_runtime_version(&config.chain_spec).state_version();
 				let block: Block = generate_genesis_block(&*config.chain_spec, state_version)
 					.map_err(|e| format!("{:?}", e))?;
 				let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
@@ -316,16 +433,12 @@ pub fn run() -> Result<()> {
 				info!("Parachain genesis state: {}", genesis_state);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				crate::service::start_parachain_node(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0)
-				.map_err(Into::into)
+				start_node_using_chain_runtime! {
+					start_parachain_node(config, polkadot_config, collator_options, id, hwbench)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into)
+				}
 			})
 		},
 	}
@@ -369,7 +482,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 	fn base_path(&self) -> Result<Option<BasePath>> {
 		Ok(self
 			.shared_params()
-			.base_path()
+			.base_path()?
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
@@ -416,12 +529,12 @@ impl CliConfiguration<Self> for RelayChainCli {
 		self.base.base.role(is_dev)
 	}
 
-	fn transaction_pool(&self) -> Result<sc_service::config::TransactionPoolOptions> {
-		self.base.base.transaction_pool()
+	fn transaction_pool(&self, is_dev: bool) -> Result<sc_service::config::TransactionPoolOptions> {
+		self.base.base.transaction_pool(is_dev)
 	}
 
-	fn state_cache_child_ratio(&self) -> Result<Option<usize>> {
-		self.base.base.state_cache_child_ratio()
+	fn trie_cache_maximum_size(&self) -> Result<Option<usize>> {
+		self.base.base.trie_cache_maximum_size()
 	}
 
 	fn rpc_methods(&self) -> Result<sc_service::config::RpcMethods> {
