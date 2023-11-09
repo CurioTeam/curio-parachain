@@ -82,7 +82,11 @@ impl<T: Config> CollectionHandle<T> {
 	/// This method allows you to set the sponsor of the collection.
 	/// In order for sponsorship to become active, it must be confirmed through [`Self::confirm_sponsorship`].
 	pub fn set_sponsor(&mut self, sponsor: T::AccountId) -> DispatchResult {
-		self.collection.sponsorship = SponsorshipState::Unconfirmed(sponsor);
+		ensure!(
+			self.collection.sponsorship.pending_sponsor() != Some(&sponsor),
+			Error::<T>::AccountAlreadySponsor
+		);
+		self.collection.sponsorship = SponsorshipState::Unconfirmed(sponsor.clone());
 		Ok(())
 	}
 
@@ -90,38 +94,22 @@ impl<T: Config> CollectionHandle<T> {
 	///
 	/// In order for the sponsorship to become active, the user set as the sponsor must confirm their participation.
 	/// Before confirming sponsorship, the user must be specified as the sponsor of the collection via [`Self::set_sponsor`].
-	pub fn confirm_sponsorship(&mut self, sender: &T::AccountId) -> Result<bool, DispatchError> {
-		if self.collection.sponsorship.pending_sponsor() != Some(sender) {
-			return Ok(false);
-		}
-
+	pub fn confirm_sponsorship(&mut self, sender: &T::AccountId) -> DispatchResult {
+		ensure!(
+			self.collection.sponsorship == SponsorshipState::Unconfirmed(sender.clone()),
+			Error::<T>::NotUnconfirmedSponsor
+		);
 		self.collection.sponsorship = SponsorshipState::Confirmed(sender.clone());
-		Ok(true)
+		Ok(())
 	}
 
 	/// Remove collection sponsor.
 	pub fn remove_sponsor(&mut self) -> DispatchResult {
+		ensure!(
+			self.collection.sponsorship != SponsorshipState::Disabled,
+			Error::<T>::SponsorshipAlreadyDisabled
+		);
 		self.collection.sponsorship = SponsorshipState::Disabled;
-		Ok(())
-	}
-
-	/// Checks that the collection was created with, and must be operated upon through **Unique API**.
-	/// Now check only the `external` flag and if it's **true**, then return [`Error::CollectionIsExternal`] error.
-	pub fn check_is_internal(&self) -> DispatchResult {
-		if self.flags.external {
-			return Err(<Error<T>>::CollectionIsExternal)?;
-		}
-
-		Ok(())
-	}
-
-	/// Checks that the collection was created with, and must be operated upon through an **assimilated API**.
-	/// Now check only the `external` flag and if it's **false**, then return [`Error::CollectionIsInternal`] error.
-	pub fn check_is_external(&self) -> DispatchResult {
-		if !self.flags.external {
-			return Err(<Error<T>>::CollectionIsInternal)?;
-		}
-
 		Ok(())
 	}
 }

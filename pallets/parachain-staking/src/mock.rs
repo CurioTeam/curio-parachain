@@ -28,11 +28,13 @@
 
 use super::*;
 use crate::{self as stake, types::NegativeImbalanceOf};
+use codec::{Encode, Decode, MaxEncodedLen};
 use frame_support::{
 	assert_ok, construct_runtime, parameter_types,
 	traits::{Currency, GenesisBuild, OnFinalize, OnInitialize, OnUnbalanced},
 };
 use pallet_authorship::EventHandler;
+use scale_info::TypeInfo;
 use sp_consensus_aura::sr25519::AuthorityId;
 use sp_core::H256;
 use sp_runtime::{
@@ -67,7 +69,7 @@ construct_runtime!(
 		Aura: pallet_aura::{Pallet, Storage},
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
 		StakePallet: stake::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
+		Authorship: pallet_authorship::{Pallet, Storage},
 	}
 );
 
@@ -108,16 +110,30 @@ parameter_types! {
 	pub const ExistentialDeposit: Balance = 1;
 }
 
+#[derive(
+	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo,
+)]
+pub enum HoldReason {
+	/// The NIS Pallet has reserved it for a non-fungible receipt.
+	Nis,
+}
+
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ();
+	type MaxHolds = ();
+	/// The type for recording an account's balance.
 	type Balance = Balance;
+	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type MaxLocks = ();
+	type MaxReserves = ();
+	type HoldIdentifier = HoldReason;
+	type ReserveIdentifier = [u8; 8];
 }
 
 impl pallet_aura::Config for Test {
@@ -128,8 +144,6 @@ impl pallet_aura::Config for Test {
 
 impl pallet_authorship::Config for Test {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-	type UncleGenerations = ();
-	type FilterUncle = ();
 	type EventHandler = Pallet<Test>;
 }
 

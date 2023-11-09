@@ -22,17 +22,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 use pallet_common::Event as PalletEvent;
+use pallet_refungible::CreateItemData;
 use pallet_whitelist::{Investor, traits::WhitelistInterface};
 
-use crate::{AccountId, Runtime, RuntimeEvent, RolesRoot, RuntimeOrigin, System, Refungible, Whitelist};
+use crate::{AccountId, Runtime, RuntimeEvent, RuntimeOrigin, System, Refungible, Whitelist};
 use collection_primitives::{
-	CollectionMode, CollectionId, CollectionFlags, CreateCollectionData, AccessMode,
-	CollectionPropertiesPermissionsVec, CollectionPropertiesVec, PropertyKeyPermission,
-	Property, CollectionTokenPrefix, CollectionDescription, CollectionName,  TokenId, 
-	MAX_ITEMS_PER_BATCH, MAX_PROPERTIES_PER_ITEM, PropertyValue, PropertyKey,
+	CollectionMode, CollectionId, CreateCollectionData,	PropertiesPermissionsVec, CollectionPropertiesVec,
+	PropertyKeyPermission, Property, CollectionTokenPrefix, CollectionDescription, CollectionName,
+	TokenId, MAX_ITEMS_PER_BATCH, MAX_PROPERTIES_PER_ITEM, PropertyValue, PropertyKey,
 	MAX_COLLECTION_NAME_LENGTH, MAX_COLLECTION_DESCRIPTION_LENGTH, MAX_TOKEN_PREFIX_LENGTH,
-	CollectionLimits, SponsoringRateLimit, CollectionPermissions,
-	MAX_PROPERTY_KEY_LENGTH, PropertyPermission
+	CollectionLimits, SponsoringRateLimit, MAX_PROPERTY_KEY_LENGTH, PropertyPermission
 };
 
 use codec::alloc::string::ToString;
@@ -69,8 +68,6 @@ fn property_permissions_from_size(size: usize) -> Vec<PropertyKeyPermission> {
 			key: PropertyKey::truncate_from(vec),
 			permission: PropertyPermission {
 				mutable: true,
-				collection_admin: false,
-				token_owner: false,
 			},
 		});
 	}
@@ -89,16 +86,6 @@ fn property_from_size(size: usize) -> Vec<Property> {
 	}
 
 	property
-}
-
-fn property_vec_from_size(items_size: usize, properties: Vec<usize>) -> Vec<Vec<Property>> {
-    let mut items = Vec::<Vec::<Property>>::with_capacity(items_size);
-
-	for i in 0..items_size {
-		items.push(property_from_size(properties[i]));
-	}
-
-	items
 }
 
 fn property_key_from_size(size: usize) -> Vec<PropertyKey> {
@@ -125,33 +112,25 @@ fn default_create_collection_data(property_premissions_size: usize, property_siz
 		owner_can_destroy: Some(true),
 		transfers_enabled: Some(true),
 	};
-	let premissions = CollectionPermissions {
-		access: Some(AccessMode::Normal),
-		mint_mode: Some(true),
-	};
 
 	CreateCollectionData::<AccountId> {
         mode: CollectionMode::ReFungible,
-        access: Some(AccessMode::Normal),
         name: CollectionName::truncate_from(Vec::from([98u16; MAX_COLLECTION_NAME_LENGTH as usize])),
         description: CollectionDescription::truncate_from(Vec::from([98u16; MAX_COLLECTION_DESCRIPTION_LENGTH as usize])),
         token_prefix: CollectionTokenPrefix::truncate_from(Vec::from([98u8; MAX_TOKEN_PREFIX_LENGTH as usize])),
-        pending_sponsor: Some(RolesRoot::get()),
+        pending_sponsor: None,
         limits: Some(limits),
-        permissions: Some(premissions),
-        token_property_permissions: CollectionPropertiesPermissionsVec::truncate_from(
+        property_permissions: PropertiesPermissionsVec::truncate_from(
             property_permissions_from_size(property_premissions_size),
         ),
         properties: CollectionPropertiesVec::truncate_from(property_from_size(property_size)),
     }
 }
 
-fn default_collection_flags() -> CollectionFlags {
-	CollectionFlags {
-		foreign: false,
-		erc721metadata: true,
-		external: false,
-		reserved: 0u8,
+fn create_item_data(users: Vec<(AccountId, u128)>, property_keys: Vec<Property>) -> CreateItemData<AccountId> {
+	CreateItemData::<AccountId> {
+		balances: users,
+		properties: property_keys
 	}
 }
 
@@ -193,20 +172,10 @@ fn create_vec_of_one_user_with_balance(user_number: usize, balance: u128) -> Vec
 	vec![(account_id, balance)]
 }
 
-fn create_vec_of_vec_of_users_with_balances(items_size: usize, accounts_size: Vec<usize>) -> Vec<Vec<(AccountId, u128)>> {
-	let mut items = Vec::<Vec::<(AccountId, u128)>>::with_capacity(items_size.into());
-	for i in 0..items_size {
-		
-		items.push(create_vec_of_users_with_balances(accounts_size[i]));
-	}
-	
-	items
-}
-
 fn create_admin(account_number: usize) -> AccountId {
 	let account_id = AccountId::new(get_individual_account_id(account_number));
 	if !Whitelist::is_admin(account_id.clone()) {
-		Whitelist::add_admin(RuntimeOrigin::signed(RolesRoot::get()), account_id.clone()).unwrap();
+		Whitelist::add_admin(RuntimeOrigin::root(), account_id.clone()).unwrap();
 	}
 	account_id
 }
@@ -229,27 +198,20 @@ fn default_init_collection(admin: &AccountId) -> CollectionId {
 		MAX_PROPERTIES_PER_ITEM as usize, 
 		MAX_PROPERTIES_PER_ITEM as usize
 	);
-	let flags = default_collection_flags();
 
-	Refungible::init_collection(RuntimeOrigin::signed(admin.clone()), data, flags).unwrap();
+	Refungible::init_collection(RuntimeOrigin::signed(admin.clone()), data).unwrap();
 	get_collection_id_from_last_event()
 }
 
 runtime_benchmarks! {
     {Runtime, pallet_refungible}
-
 	
     init_collection {
-		
 		let i in 1..MAX_PROPERTIES_PER_ITEM.into();
 		let j in 1..MAX_PROPERTIES_PER_ITEM.into();
 		let account_id = create_admin(0);
-		
-		
-		let data = default_create_collection_data(i as usize, j as usize);
-		let flags = default_collection_flags();
-		
-    }: _(RuntimeOrigin::signed(account_id.clone()), data.clone(), flags)
+		let data = default_create_collection_data(i as usize, j as usize);		
+    }: _(RuntimeOrigin::signed(account_id.clone()), data.clone())
 	verify {
 		let collection_id = get_collection_id_from_last_event();
 		assert_last_event(PalletEvent::CollectionCreated(collection_id, CollectionMode::ReFungible.id(), account_id).into());
@@ -258,7 +220,6 @@ runtime_benchmarks! {
 	destroy_collection {
 		System::set_block_number(1);
 		let account_id = create_admin(0);
-
 		let collection_id = default_init_collection(&account_id);
 	}: _(RuntimeOrigin::signed(account_id), collection_id.clone())
 	verify {
@@ -284,9 +245,6 @@ runtime_benchmarks! {
 	verify {
 		assert_last_event(PalletEvent::CollectionPropertyDeleted(collection_id, property_keys[0].clone()).into());
 	}
-
-
-
 
 	set_collection_properties {
 		let k in 1..MAX_PROPERTIES_PER_ITEM.into();
@@ -324,11 +282,9 @@ runtime_benchmarks! {
 		assert_last_event(PalletEvent::PropertyPermissionSet(collection_id, properties[0].key.clone()).into());
 	}
 
-
-
 	create_item {
-		let l in 1..MAX_ITEMS_PER_BATCH;//Max users per item
-		let p in 1..MAX_PROPERTIES_PER_ITEM;//Max amount of property
+		let l in 1..MAX_ITEMS_PER_BATCH; //Max users per item
+		let p in 1..MAX_PROPERTIES_PER_ITEM; //Max amount of property
 
 		System::set_block_number(1);
 		let account_id = create_admin(0);
@@ -337,11 +293,13 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(l as usize);
 		let property_keys = property_from_size(p as usize);
-	}: _(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users.clone(), property_keys)
+
+		let data = create_item_data(users, property_keys);
+	}: _(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data.clone())
 	verify {
 		let token_id = get_token_id_from_last_event();
 		for i in 0..l {
-			System::assert_has_event(PalletEvent::ItemCreated(collection_id, token_id, users[i as usize].0.clone(), 1).into())
+			System::assert_has_event(PalletEvent::ItemCreated(collection_id, token_id, data.balances[i as usize].0.clone(), 1).into())
 		}
 	}
 
@@ -356,11 +314,13 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(l as usize);
 		let property_keys = property_from_size(p as usize);
-	}: {Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users.clone(), property_keys)}
+
+		let data = create_item_data(users, property_keys);
+	}: {Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data.clone())}
 	verify {
 		let token_id = get_token_id_from_last_event();
 		for i in 0..l {
-			System::assert_has_event(PalletEvent::ItemCreated(collection_id, token_id, users[i as usize].0.clone(), 1).into())
+			System::assert_has_event(PalletEvent::ItemCreated(collection_id, token_id, data.balances[i as usize].0.clone(), 1).into())
 		}
 	}
 	
@@ -371,7 +331,9 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(MAX_ITEMS_PER_BATCH as usize);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users, property_keys).unwrap();
+
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 		let property = Property {
@@ -391,7 +353,9 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(MAX_ITEMS_PER_BATCH as usize);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users, property_keys).unwrap();
+
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 		let property = property_from_size(i as usize);
@@ -409,7 +373,8 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(MAX_ITEMS_PER_BATCH as usize);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users, property_keys).unwrap();
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 		let property = PropertyKey::truncate_from(get_individual_property_key(1));
@@ -426,7 +391,8 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(MAX_ITEMS_PER_BATCH as usize);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users, property_keys).unwrap();
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 		let property = property_key_from_size(i as usize);
@@ -444,7 +410,8 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(MAX_ITEMS_PER_BATCH as usize);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users, property_keys).unwrap();
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 
@@ -462,7 +429,8 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(MAX_ITEMS_PER_BATCH as usize);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users, property_keys).unwrap();
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 
@@ -480,7 +448,8 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(MAX_ITEMS_PER_BATCH as usize);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(from.clone()), collection_id.clone(), users, property_keys).unwrap();
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(from.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 
@@ -502,7 +471,8 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(MAX_ITEMS_PER_BATCH as usize);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users, property_keys).unwrap();
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 
@@ -518,7 +488,8 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(MAX_ITEMS_PER_BATCH as usize);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(from.clone()), collection_id.clone(), users, property_keys).unwrap();
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(from.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 		let who = create_admin(1);
@@ -537,7 +508,8 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_one_user_with_balance(0, 100);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users, property_keys).unwrap();
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 
@@ -553,7 +525,8 @@ runtime_benchmarks! {
 
 		let users = create_vec_of_users_with_balances(MAX_ITEMS_PER_BATCH as usize);
 		let property_keys = property_from_size(MAX_PROPERTIES_PER_ITEM as usize);
-		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), users, property_keys).unwrap();
+		let data = create_item_data(users, property_keys);
+		Refungible::create_item(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), data).unwrap();
 
 		let token_id = get_token_id_from_last_event();
 
@@ -564,8 +537,39 @@ runtime_benchmarks! {
 		assert_last_event(PalletEvent::AdminToggled(person, true).into());
 	}
 
-}
+	set_sponsor {
+		System::set_block_number(1);
+		let account_id = create_admin(0);
+		let collection_id = default_init_collection(&account_id);
+		let sponsor = AccountId::new(get_individual_account_id(1));
+	}: _(RuntimeOrigin::signed(account_id), collection_id, sponsor.clone())
+	verify {
+		assert_last_event(PalletEvent::SponsorSet(collection_id, sponsor).into());
+	}
 
+	confirm_sponsorship {
+		System::set_block_number(1);
+		let account_id = create_admin(0);
+		let collection_id = default_init_collection(&account_id);
+		let sponsor = AccountId::new(get_individual_account_id(1));
+		Refungible::set_sponsor(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), sponsor.clone()).unwrap();
+	}: _(RuntimeOrigin::signed(sponsor.clone()), collection_id.clone())
+	verify {
+		assert_last_event(PalletEvent::SponsorhipConfirmed(collection_id, sponsor).into());
+	}
+
+	remove_sponsor {
+		System::set_block_number(1);
+		let account_id = create_admin(0);
+		let collection_id = default_init_collection(&account_id);
+		let sponsor = AccountId::new(get_individual_account_id(1));
+		Refungible::set_sponsor(RuntimeOrigin::signed(account_id.clone()), collection_id.clone(), sponsor.clone()).unwrap();
+		Refungible::confirm_sponsorship(RuntimeOrigin::signed(sponsor), collection_id.clone()).unwrap();
+	}: _(RuntimeOrigin::signed(account_id), collection_id.clone())
+	verify {
+		assert_last_event(PalletEvent::SponsorshipRemoved(collection_id).into());
+	}
+}
 
 #[cfg(test)]
 mod tests {

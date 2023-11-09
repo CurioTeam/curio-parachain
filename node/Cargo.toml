@@ -14,7 +14,7 @@ log.workspace = true
 codec.workspace = true
 serde = { workspace = true, features = ["derive"] }
 hex-literal.workspace = true
-jsonrpsee = { workspace = true, features = ["server"] }
+jsonrpsee = { workspace = true, features = ["macros", "server"] }
 
 # Local
 curio-devnet-runtime = { workspace = true, features = ["std"] }
@@ -29,16 +29,17 @@ frame-benchmarking-cli.workspace = true
 pallet-transaction-payment-rpc.workspace = true
 sc-basic-authorship.workspace = true
 sc-chain-spec.workspace = true
-sc-cli = { workspace = true, features = ["wasmtime"] }
+sc-cli.workspace = true
 sc-client-api.workspace = true
 sc-consensus.workspace = true
-sc-executor = { workspace = true, features = ["wasmtime"] }
+sc-executor.workspace = true
 sc-keystore.workspace = true
 sc-network.workspace = true
+sc-network-sync = { workspace = true }
 sc-network-common.workspace = true
 sc-rpc.workspace = true
 sc-rpc-api.workspace = true
-sc-service = { workspace = true, features = ["wasmtime"] }
+sc-service.workspace = true
 sc-sysinfo.workspace = true
 sc-telemetry.workspace = true
 sc-tracing.workspace = true
@@ -55,8 +56,10 @@ sp-keystore.workspace = true
 sp-offchain = { workspace = true, features = ["std"] }
 sp-runtime = { workspace = true, features = ["std"] }
 sp-session = { workspace = true, features = ["std"] }
+sp-std = { workspace = true, features = ["std"] }
 sp-timestamp.workspace = true
 sp-transaction-pool = { workspace = true, features = ["std"] }
+sp-io = { workspace = true, features = ["std"] }
 substrate-frame-rpc-system.workspace = true
 substrate-prometheus-endpoint.workspace = true
 try-runtime-cli.workspace = true
@@ -95,9 +98,9 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"curio-devnet-runtime/try-runtime",
-	"curio-testnet-runtime/try-runtime",
-	"curio-mainnet-runtime/try-runtime",
-	"polkadot-cli/runtime-benchmarks",
+	"curio-testnet-runtime?/try-runtime",
+	"curio-mainnet-runtime?/try-runtime",
+	"try-runtime-cli/try-runtime"
 ]
 
 [package.metadata.deb]

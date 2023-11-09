@@ -23,13 +23,14 @@
 
 use cumulus_primitives_core::ParaId;
 use primitives::{
-	AccountId, AuraId, Balance, CurrencyId, DOLLARS,
-	Signature, TokenSymbol
+	AccountId, AuraId, Balance, DOLLARS,
+	Signature
 };
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
-use sp_core::{sr25519, Pair, Public};
+use sp_std::str::FromStr;
+use sp_core::{sr25519, Pair, Public, H160};
 use sp_runtime::{
 	Perquintill,
 	traits::{IdentifyAccount, Verify}
@@ -165,8 +166,8 @@ where
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn node_session_keys(keys: AuraId) -> default_runtime::SessionKeys {
-	default_runtime::SessionKeys { aura: keys }
+pub fn node_session_keys(keys: AuraId) -> default_runtime::node_imports::SessionKeys {
+	default_runtime::node_imports::SessionKeys { aura: keys }
 }
 
 const TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -319,28 +320,21 @@ fn testnet_genesis(
     });
     let num_endowed_accounts = endowed_accounts.len();
 
-	#[cfg(all(not(feature = "curio-mainnet-runtime"), not(feature = "curio-testnet-runtime")))]
-	let endowed_currencies: Vec<(CurrencyId, Balance)> = vec![
-		(CurrencyId::Token(TokenSymbol::DOT), 100000000000000),
-		(CurrencyId::Token(TokenSymbol::QTZ), 10000000000000000000000),
-		(CurrencyId::Token(TokenSymbol::ETH), 10000000000000000000000),
-	];
+	let endowed_currencies: Vec<(default_runtime::node_imports::CurrencyId, Balance)> = vec![];
 
 	default_runtime::GenesisConfig {
-		#[cfg(not(feature = "curio-mainnet-runtime"))]
+		#[cfg(not(any(feature = "curio-mainnet-runtime", feature = "curio-testnet-runtime")))]
 		whitelist: default_runtime::WhitelistConfig::default(),
-		#[cfg(all(not(feature = "curio-mainnet-runtime"), not(feature = "curio-testnet-runtime")))]
 		dex: default_runtime::DexConfig {
 			initial_listing_trading_pairs: vec![],
 			initial_added_liquidity_pools: vec![],
 			initial_enabled_trading_pairs: vec![]
 		},
-		#[cfg(all(not(feature = "curio-mainnet-runtime"), not(feature = "curio-testnet-runtime")))]
 		tokens: default_runtime::TokensConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
-				.flat_map::<Vec<(AccountId, CurrencyId, Balance)>, _>(|account| 
+				.flat_map::<Vec<(AccountId, default_runtime::node_imports::CurrencyId, Balance)>, _>(|account| 
 					endowed_currencies
 						.iter()
 						.cloned()
@@ -360,6 +354,23 @@ fn testnet_genesis(
 			.cloned()
 			.map(|k| (k, 10_000_000 * DOLLARS))
 			.collect(),
+		},
+		#[cfg(not(feature = "curio-testnet-runtime"))]
+		bridge: default_runtime::BridgeConfig {
+			#[cfg(not(feature = "curio-mainnet-runtime"))]
+			supported_currencies: vec![
+				(default_runtime::node_imports::CGT, H160::from_str("0xd219F93eab932441eE2c5A41b3353f0497447DF2").unwrap(), false),
+				(default_runtime::node_imports::DAI, H160::from_str("0x257164f7258c6A896d9CAb27e6fBE16622719F0F").unwrap(), false),
+				(default_runtime::node_imports::WCT1, H160::from_str("0x60e81635C565d226f58c4db05045d74D99Df9557").unwrap(), false),
+			],
+			#[cfg(feature = "curio-mainnet-runtime")]
+			supported_currencies: vec![
+				(default_runtime::node_imports::CGT, H160::from_str("0xd219F93eab932441eE2c5A41b3353f0497447DF2").unwrap(), false),
+			],
+			initial_managers: vec![],
+			blacklisted_sub: vec![],
+			blacklisted_eth: vec![],
+			full_pause: false
 		},
 		parachain_info: default_runtime::ParachainInfoConfig { parachain_id: id },
 		indices: default_runtime::IndicesConfig { indices: vec![] },
@@ -396,41 +407,32 @@ fn testnet_genesis(
         },
 		technical_membership: Default::default(),
         treasury: Default::default(),
-        society: default_runtime::SocietyConfig {
-            members: endowed_accounts
-                .iter()
-                .take((num_endowed_accounts + 1) / 2)
-                .cloned()
-                .collect(),
-            pot: 0,
-            max_members: 999,
-        },
         vesting: Default::default(),
         parachain_staking: default_runtime::ParachainStakingConfig {
 			stakers: vec![
 				(
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
 					None,
-					2 * default_runtime::MinCollatorStake::get(),
+					2 * default_runtime::node_imports::MinCollatorStake::get(),
 				),
 				(
 					get_account_id_from_seed::<sr25519::Public>("Bob"),
 					None,
-					2 * default_runtime::MinCollatorStake::get(),
+					2 * default_runtime::node_imports::MinCollatorStake::get(),
 				)
 			],
-			inflation_config: default_runtime::InflationInfo::new(
-				default_runtime::BLOCKS_PER_YEAR,
+			inflation_config: default_runtime::node_imports::InflationInfo::new(
+				default_runtime::node_imports::BLOCKS_PER_YEAR,
 				// max collator staking rate
-				Perquintill::from_percent(60),
+				Perquintill::from_percent(30),
 				// collator reward rate
-				Perquintill::from_percent(10),
+				Perquintill::from_percent(20),
 				// max delegator staking rate
-				Perquintill::from_percent(11),
+				Perquintill::from_percent(30),
 				// delegator reward rate
-				Perquintill::from_percent(8)
+				Perquintill::from_percent(16)
 			),
-			max_candidate_stake: 200_000 * DOLLARS,
+			max_candidate_stake: 500_000 * DOLLARS,
 		},
 		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
 		// of this.
@@ -440,7 +442,6 @@ fn testnet_genesis(
 		polkadot_xcm: default_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
-		#[cfg(not(feature = "curio-mainnet-runtime"))]
 		sudo: default_runtime::SudoConfig { key: Some(root_key) },
 	}
 }

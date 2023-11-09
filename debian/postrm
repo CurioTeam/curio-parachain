@@ -1,3 +1,0 @@
-#!/bin/bash
-#DEBHELPER#
-sudo rm -rf /bin/curio-parachain-node

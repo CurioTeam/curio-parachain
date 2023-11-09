@@ -59,34 +59,34 @@ pub trait WeightInfo {
 pub struct AcalaWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for AcalaWeight<T> {
 	fn transfer_non_native_currency() -> Weight {
-		Weight::from_ref_time(65_000_000 as u64)
+		Weight::from_parts(65_000_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	fn transfer_native_currency() -> Weight {
-		Weight::from_ref_time(59_000_000 as u64)
+		Weight::from_parts(59_000_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	fn update_balance_non_native_currency() -> Weight {
-		Weight::from_ref_time(36_000_000 as u64)
+		Weight::from_parts(36_000_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
 	fn update_balance_native_currency_creating() -> Weight {
-		Weight::from_ref_time(34_000_000 as u64)
+		Weight::from_parts(34_000_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	fn update_balance_native_currency_killing() -> Weight {
-		Weight::from_ref_time(35_000_000 as u64)
+		Weight::from_parts(35_000_000 as u64, 0)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	fn sweep_dust(c: u32, ) -> Weight {
-		Weight::from_ref_time(7_733_000 as u64)
+		Weight::from_parts(7_733_000 as u64, 0)
 			// Standard Error: 93_000
-			.saturating_add(Weight::from_ref_time(25_350_000 as u64).saturating_mul(c as u64))
+			.saturating_add(Weight::from_parts(25_350_000 as u64, 0).saturating_mul(c as u64))
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().reads((2 as u64).saturating_mul(c as u64)))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
@@ -97,34 +97,34 @@ impl<T: frame_system::Config> WeightInfo for AcalaWeight<T> {
 // For backwards compatibility and tests
 impl WeightInfo for () {
 	fn transfer_non_native_currency() -> Weight {
-		Weight::from_ref_time(65_000_000 as u64)
+		Weight::from_parts(65_000_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(5 as u64))
 			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
 	fn transfer_native_currency() -> Weight {
-		Weight::from_ref_time(59_000_000 as u64)
+		Weight::from_parts(59_000_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	fn update_balance_non_native_currency() -> Weight {
-		Weight::from_ref_time(36_000_000 as u64)
+		Weight::from_parts(36_000_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
 	fn update_balance_native_currency_creating() -> Weight {
-		Weight::from_ref_time(34_000_000 as u64)
+		Weight::from_parts(34_000_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	fn update_balance_native_currency_killing() -> Weight {
-		Weight::from_ref_time(35_000_000 as u64)
+		Weight::from_parts(35_000_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	fn sweep_dust(c: u32, ) -> Weight {
-		Weight::from_ref_time(7_733_000 as u64)
+		Weight::from_parts(7_733_000 as u64, 0)
 			// Standard Error: 93_000
-			.saturating_add(Weight::from_ref_time(25_350_000 as u64).saturating_mul(c as u64))
+			.saturating_add(Weight::from_parts(25_350_000 as u64, 0).saturating_mul(c as u64))
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().reads((2 as u64).saturating_mul(c as u64)))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))

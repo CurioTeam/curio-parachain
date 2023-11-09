@@ -41,63 +41,43 @@
 #![allow(clippy::unused_unit)]
 #![allow(clippy::collapsible_if)]
 
-use codec::MaxEncodedLen;
+use codec::{Decode, MaxEncodedLen};
 use frame_support::{log, pallet_prelude::*, transactional, PalletId};
 use frame_system::pallet_prelude::*;
 use orml_traits::{Happened, MultiCurrency, MultiCurrencyExtended};
-use primitives::{Balance, TradingPair, CurrencyId};
-use scale_info::TypeInfo;
+use primitives::{Balance};
 use sp_core::{U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
-	ArithmeticError, DispatchError, DispatchResult, FixedPointNumber, RuntimeDebug, SaturatedConversion,
+	ArithmeticError, DispatchError, DispatchResult, FixedPointNumber, SaturatedConversion,
 };
 use sp_std::{prelude::*, vec};
-use module_support::{DEXIncentives, DEXManager, ExchangeRate, Ratio, SwapLimit};
+use crate::{
+	types::{
+		DexCurrencyId, 
+		ExchangeRate, 
+		TradingPair,
+		TradingPairStatus,
+		ProvisioningParameters,
+		SwapLimit, 
+		Ratio
+	},
+	traits::{
+		DEXManager, 
+		DEXIncentives
+	}
+};
 
-#[cfg(test)]
+pub mod types;
+pub mod traits;
 mod mock;
-
-#[cfg(test)]
+mod mock_currency;
 mod tests;
 
 pub mod weights;
 
 pub use module::*;
 pub use weights::WeightInfo;
-
-/// Parameters of TradingPair in Provisioning status
-#[derive(Encode, Decode, Clone, Copy, RuntimeDebug, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
-pub struct ProvisioningParameters<Balance, BlockNumber> {
-	/// limit contribution per time.
-	min_contribution: (Balance, Balance),
-	/// target provision that trading pair could to be Enabled.
-	target_provision: (Balance, Balance),
-	/// accumulated provision amount for this Provisioning trading pair.
-	accumulated_provision: (Balance, Balance),
-	/// The number of block that status can be converted to Enabled.
-	not_before: BlockNumber,
-}
-
-/// Status for TradingPair
-#[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
-pub enum TradingPairStatus<Balance, BlockNumber> {
-	/// Default status,
-	/// can withdraw liquidity, re-enable and list this trading pair.
-	Disabled,
-	/// TradingPair is Provisioning,
-	/// can add provision and disable this trading pair.
-	Provisioning(ProvisioningParameters<Balance, BlockNumber>),
-	/// TradingPair is Enabled,
-	/// can add/remove liquidity, trading and disable this trading pair.
-	Enabled,
-}
-
-impl<Balance, BlockNumber> Default for TradingPairStatus<Balance, BlockNumber> {
-	fn default() -> Self {
-		Self::Disabled
-	}
-}
 
 #[frame_support::pallet]
 pub mod module {
@@ -107,8 +87,17 @@ pub mod module {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		type CurrencyId: DexCurrencyId 
+			+ Decode 
+			+ Member
+			+ Parameter
+			+ PartialOrd
+			+ Copy 
+			+ MaybeSerializeDeserialize 
+			+ MaxEncodedLen;
+
 		/// Currency for transfer currencies
-		type Currency: MultiCurrencyExtended<Self::AccountId, CurrencyId = CurrencyId, Balance = Balance>;
+		type Currency: MultiCurrencyExtended<Self::AccountId, Balance = Balance, CurrencyId = Self::CurrencyId>;
 
 		/// Trading fee rate
 		/// The first item of the tuple is the numerator of the fee rate, second
@@ -130,7 +119,7 @@ pub mod module {
 		type WeightInfo: WeightInfo;
 
 		/// DEX incentives
-		type DEXIncentives: DEXIncentives<Self::AccountId, CurrencyId, Balance>;
+		type DEXIncentives: DEXIncentives<Self::AccountId, Self::CurrencyId, Balance>;
 
 		/// The origin which may list, enable or disable trading pairs.
 		type ListingOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -140,7 +129,7 @@ pub mod module {
 		type ExtendedProvisioningBlocks: Get<Self::BlockNumber>;
 
 		/// Event handler which calls when update liquidity pool.
-		type OnLiquidityPoolUpdated: Happened<(TradingPair, Balance, Balance)>;
+		type OnLiquidityPoolUpdated: Happened<(TradingPair<Self::CurrencyId>, Balance, Balance)>;
 	}
 
 	#[pallet::error]
@@ -197,44 +186,44 @@ pub mod module {
 		/// add provision success
 		AddProvision {
 			who: T::AccountId,
-			currency_0: CurrencyId,
+			currency_0: T::CurrencyId,
 			contribution_0: Balance,
-			currency_1: CurrencyId,
+			currency_1: T::CurrencyId,
 			contribution_1: Balance,
 		},
 		/// Add liquidity success.
 		AddLiquidity {
 			who: T::AccountId,
-			currency_0: CurrencyId,
+			currency_0: T::CurrencyId,
 			pool_0: Balance,
-			currency_1: CurrencyId,
+			currency_1: T::CurrencyId,
 			pool_1: Balance,
 			share_increment: Balance,
 		},
 		/// Remove liquidity from the trading pool success.
 		RemoveLiquidity {
 			who: T::AccountId,
-			currency_0: CurrencyId,
+			currency_0: T::CurrencyId,
 			pool_0: Balance,
-			currency_1: CurrencyId,
+			currency_1: T::CurrencyId,
 			pool_1: Balance,
 			share_decrement: Balance,
 		},
 		/// Use supply currency to swap target currency.
 		Swap {
 			trader: T::AccountId,
-			path: Vec<CurrencyId>,
+			path: Vec<T::CurrencyId>,
 			liquidity_changes: Vec<Balance>,
 		},
 		/// Enable trading pair.
-		EnableTradingPair { trading_pair: TradingPair },
+		EnableTradingPair { trading_pair: TradingPair<T::CurrencyId> },
 		/// List provisioning trading pair.
-		ListProvisioning { trading_pair: TradingPair },
+		ListProvisioning { trading_pair: TradingPair<T::CurrencyId> },
 		/// Disable trading pair.
-		DisableTradingPair { trading_pair: TradingPair },
+		DisableTradingPair { trading_pair: TradingPair<T::CurrencyId> },
 		/// Provisioning trading pair convert to Enabled.
 		ProvisioningToEnabled {
-			trading_pair: TradingPair,
+			trading_pair: TradingPair<T::CurrencyId>,
 			pool_0: Balance,
 			pool_1: Balance,
 			share_amount: Balance,
@@ -242,14 +231,14 @@ pub mod module {
 		/// refund provision success
 		RefundProvision {
 			who: T::AccountId,
-			currency_0: CurrencyId,
+			currency_0: T::CurrencyId,
 			contribution_0: Balance,
-			currency_1: CurrencyId,
+			currency_1: T::CurrencyId,
 			contribution_1: Balance,
 		},
 		/// Provisioning trading pair aborted.
 		ProvisioningAborted {
-			trading_pair: TradingPair,
+			trading_pair: TradingPair<T::CurrencyId>,
 			accumulated_provision_0: Balance,
 			accumulated_provision_1: Balance,
 		},
@@ -260,7 +249,7 @@ pub mod module {
 	/// LiquidityPool: map TradingPair => (Balance, Balance)
 	#[pallet::storage]
 	#[pallet::getter(fn liquidity_pool)]
-	pub type LiquidityPool<T: Config> = StorageMap<_, Twox64Concat, TradingPair, (Balance, Balance), ValueQuery>;
+	pub type LiquidityPool<T: Config> = StorageMap<_, Twox64Concat, TradingPair<T::CurrencyId>, (Balance, Balance), ValueQuery>;
 
 	/// Status for TradingPair.
 	///
@@ -268,7 +257,7 @@ pub mod module {
 	#[pallet::storage]
 	#[pallet::getter(fn trading_pair_statuses)]
 	pub type TradingPairStatuses<T: Config> =
-		StorageMap<_, Twox64Concat, TradingPair, TradingPairStatus<Balance, T::BlockNumber>, ValueQuery>;
+		StorageMap<_, Twox64Concat, TradingPair<T::CurrencyId>, TradingPairStatus<Balance, T::BlockNumber>, ValueQuery>;
 
 	/// Provision of TradingPair by AccountId.
 	///
@@ -277,7 +266,7 @@ pub mod module {
 	#[pallet::storage]
 	#[pallet::getter(fn provisioning_pool)]
 	pub type ProvisioningPool<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, TradingPair, Twox64Concat, T::AccountId, (Balance, Balance), ValueQuery>;
+		StorageDoubleMap<_, Twox64Concat, TradingPair<T::CurrencyId>, Twox64Concat, T::AccountId, (Balance, Balance), ValueQuery>;
 
 	/// Initial exchange rate, used to calculate the dex share amount for founders of provisioning
 	///
@@ -285,13 +274,13 @@ pub mod module {
 	#[pallet::storage]
 	#[pallet::getter(fn initial_share_exchange_rates)]
 	pub type InitialShareExchangeRates<T: Config> =
-		StorageMap<_, Twox64Concat, TradingPair, (ExchangeRate, ExchangeRate), ValueQuery>;
+		StorageMap<_, Twox64Concat, TradingPair<T::CurrencyId>, (ExchangeRate, ExchangeRate), ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub initial_listing_trading_pairs: Vec<(TradingPair, (Balance, Balance), (Balance, Balance), T::BlockNumber)>,
-		pub initial_enabled_trading_pairs: Vec<TradingPair>,
-		pub initial_added_liquidity_pools: Vec<(T::AccountId, Vec<(TradingPair, (Balance, Balance))>)>,
+		pub initial_listing_trading_pairs: Vec<(TradingPair<T::CurrencyId>, (Balance, Balance), (Balance, Balance), T::BlockNumber)>,
+		pub initial_enabled_trading_pairs: Vec<TradingPair<T::CurrencyId>>,
+		pub initial_added_liquidity_pools: Vec<(T::AccountId, Vec<(TradingPair<T::CurrencyId>, (Balance, Balance))>)>,
 	}
 
 	#[cfg(feature = "std")]
@@ -364,11 +353,12 @@ pub mod module {
 		/// - `path`: trading path.
 		/// - `supply_amount`: exact supply amount.
 		/// - `min_target_amount`: acceptable minimum target amount.
+		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::swap_with_exact_supply(path.len() as u32))]
 		#[transactional]
 		pub fn swap_with_exact_supply(
 			origin: OriginFor<T>,
-			path: Vec<CurrencyId>,
+			path: Vec<T::CurrencyId>,
 			#[pallet::compact] supply_amount: Balance,
 			#[pallet::compact] min_target_amount: Balance,
 		) -> DispatchResult {
@@ -382,11 +372,12 @@ pub mod module {
 		/// - `path`: trading path.
 		/// - `target_amount`: exact target amount.
 		/// - `max_supply_amount`: acceptable maximum supply amount.
+		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::swap_with_exact_target(path.len() as u32))]
 		#[transactional]
 		pub fn swap_with_exact_target(
 			origin: OriginFor<T>,
-			path: Vec<CurrencyId>,
+			path: Vec<T::CurrencyId>,
 			#[pallet::compact] target_amount: Balance,
 			#[pallet::compact] max_supply_amount: Balance,
 		) -> DispatchResult {
@@ -408,6 +399,7 @@ pub mod module {
 		/// - `min_share_increment`: minimum acceptable share amount.
 		/// - `stake_increment_share`: indicates whether to stake increased dex share to earn
 		///   incentives
+		#[pallet::call_index(2)]
 		#[pallet::weight(if *stake_increment_share {
 			<T as Config>::WeightInfo::add_liquidity_and_stake()
 		} else {
@@ -416,8 +408,8 @@ pub mod module {
 		#[transactional]
 		pub fn add_liquidity(
 			origin: OriginFor<T>,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 			#[pallet::compact] max_amount_a: Balance,
 			#[pallet::compact] max_amount_b: Balance,
 			#[pallet::compact] min_share_increment: Balance,
@@ -444,12 +436,13 @@ pub mod module {
 		/// - `currency_id_b`: currency id B.
 		/// - `amount_a`: provision amount for currency_id_a.
 		/// - `amount_b`: provision amount for currency_id_b.
+		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config>::WeightInfo::add_provision())]
 		#[transactional]
 		pub fn add_provision(
 			origin: OriginFor<T>,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 			#[pallet::compact] amount_a: Balance,
 			#[pallet::compact] amount_b: Balance,
 		) -> DispatchResult {
@@ -463,13 +456,14 @@ pub mod module {
 		/// - `owner`: founder account.
 		/// - `currency_id_a`: currency id A.
 		/// - `currency_id_b`: currency id B.
+		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::claim_dex_share())]
 		#[transactional]
 		pub fn claim_dex_share(
 			origin: OriginFor<T>,
 			owner: T::AccountId,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 			Self::do_claim_dex_share(&owner, currency_id_a, currency_id_b)?;
@@ -486,6 +480,7 @@ pub mod module {
 		/// - `min_withdrawn_a`: minimum acceptable withrawn for currency_id_a.
 		/// - `min_withdrawn_b`: minimum acceptable withrawn for currency_id_b.
 		/// - `by_unstake`: this flag indicates whether to withdraw share which is on incentives.
+		#[pallet::call_index(5)]
 		#[pallet::weight(if *by_unstake {
 			<T as Config>::WeightInfo::remove_liquidity_by_unstake()
 		} else {
@@ -494,8 +489,8 @@ pub mod module {
 		#[transactional]
 		pub fn remove_liquidity(
 			origin: OriginFor<T>,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 			#[pallet::compact] remove_share: Balance,
 			#[pallet::compact] min_withdrawn_a: Balance,
 			#[pallet::compact] min_withdrawn_b: Balance,
@@ -515,12 +510,13 @@ pub mod module {
 		}
 
 		/// List a new provisioning trading pair.
+		#[pallet::call_index(6)]
 		#[pallet::weight((<T as Config>::WeightInfo::list_provisioning(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn list_provisioning(
 			origin: OriginFor<T>,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 			#[pallet::compact] min_contribution_a: Balance,
 			#[pallet::compact] min_contribution_b: Balance,
 			#[pallet::compact] target_provision_a: Balance,
@@ -530,7 +526,7 @@ pub mod module {
 			T::ListingOrigin::ensure_origin(origin)?;
 
 			let trading_pair =
-				TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+				<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 			ensure!(
 				matches!(
 					Self::trading_pair_statuses(trading_pair),
@@ -571,12 +567,13 @@ pub mod module {
 
 		/// List a new trading pair, trading pair will become Enabled status
 		/// after provision process.
+		#[pallet::call_index(7)]
 		#[pallet::weight((<T as Config>::WeightInfo::update_provisioning_parameters(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn update_provisioning_parameters(
 			origin: OriginFor<T>,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 			#[pallet::compact] min_contribution_a: Balance,
 			#[pallet::compact] min_contribution_b: Balance,
 			#[pallet::compact] target_provision_a: Balance,
@@ -585,7 +582,7 @@ pub mod module {
 		) -> DispatchResult {
 			T::ListingOrigin::ensure_origin(origin)?;
 			let trading_pair =
-				TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+				<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 
 			match Self::trading_pair_statuses(trading_pair) {
 				TradingPairStatus::Provisioning(provisioning_parameters) => {
@@ -617,17 +614,18 @@ pub mod module {
 		}
 
 		/// Enable a Provisioning trading pair if meet the condition.
+		#[pallet::call_index(8)]
 		#[pallet::weight((<T as Config>::WeightInfo::end_provisioning(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn end_provisioning(
 			origin: OriginFor<T>,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
 			let trading_pair =
-				TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+				<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 
 			match Self::trading_pair_statuses(trading_pair) {
 				TradingPairStatus::<_, _>::Provisioning(provisioning_parameters) => {
@@ -696,16 +694,17 @@ pub mod module {
 		/// Enable a trading pair
 		/// if the status of trading pair is `Disabled`, or `Provisioning` without any accumulated
 		/// provision, enable it directly.
+		#[pallet::call_index(9)]
 		#[pallet::weight((<T as Config>::WeightInfo::enable_trading_pair(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn enable_trading_pair(
 			origin: OriginFor<T>,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 		) -> DispatchResult {
 			T::ListingOrigin::ensure_origin(origin)?;
 			let trading_pair =
-				TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+				<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 			match Self::trading_pair_statuses(trading_pair) {
 				TradingPairStatus::<_, _>::Disabled => {}
 				TradingPairStatus::<_, _>::Provisioning(provisioning_parameters) => {
@@ -724,16 +723,17 @@ pub mod module {
 		}
 
 		/// Disable a `Enabled` trading pair.
+		#[pallet::call_index(10)]
 		#[pallet::weight((<T as Config>::WeightInfo::disable_trading_pair(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn disable_trading_pair(
 			origin: OriginFor<T>,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 		) -> DispatchResult {
 			T::ListingOrigin::ensure_origin(origin)?;
 			let trading_pair =
-				TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+				<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 			ensure!(
 				matches!(
 					Self::trading_pair_statuses(trading_pair),
@@ -752,17 +752,18 @@ pub mod module {
 		/// - `owner`: founder account.
 		/// - `currency_id_a`: currency id A.
 		/// - `currency_id_b`: currency id B.
+		#[pallet::call_index(11)]
 		#[pallet::weight(<T as Config>::WeightInfo::refund_provision())]
 		#[transactional]
 		pub fn refund_provision(
 			origin: OriginFor<T>,
 			owner: T::AccountId,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 			let trading_pair =
-				TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+				<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 			ensure!(
 				matches!(
 					Self::trading_pair_statuses(trading_pair),
@@ -798,17 +799,18 @@ pub mod module {
 		}
 
 		/// Abort provision when it's don't meet the target and expired.
+		#[pallet::call_index(12)]
 		#[pallet::weight((<T as Config>::WeightInfo::abort_provisioning(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn abort_provisioning(
 			origin: OriginFor<T>,
-			currency_id_a: CurrencyId,
-			currency_id_b: CurrencyId,
+			currency_id_a: T::CurrencyId,
+			currency_id_b: T::CurrencyId,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
 			let trading_pair =
-				TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+				<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 
 			match Self::trading_pair_statuses(trading_pair) {
 				TradingPairStatus::<_, _>::Provisioning(provisioning_parameters) => {
@@ -847,7 +849,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn try_mutate_liquidity_pool<R, E>(
-		trading_pair: &TradingPair,
+		trading_pair: &TradingPair<T::CurrencyId>,
 		f: impl FnOnce((&mut Balance, &mut Balance)) -> sp_std::result::Result<R, E>,
 	) -> sp_std::result::Result<R, E> {
 		LiquidityPool::<T>::try_mutate(trading_pair, |(pool_0, pool_1)| -> sp_std::result::Result<R, E> {
@@ -863,9 +865,9 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	fn do_claim_dex_share(who: &T::AccountId, currency_id_a: CurrencyId, currency_id_b: CurrencyId) -> DispatchResult {
+	fn do_claim_dex_share(who: &T::AccountId, currency_id_a: T::CurrencyId, currency_id_b: T::CurrencyId) -> DispatchResult {
 		let trading_pair =
-			TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+			<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 		ensure!(
 			!matches!(
 				Self::trading_pair_statuses(trading_pair),
@@ -910,13 +912,13 @@ impl<T: Config> Pallet<T> {
 
 	fn do_add_provision(
 		who: &T::AccountId,
-		currency_id_a: CurrencyId,
-		currency_id_b: CurrencyId,
+		currency_id_a: T::CurrencyId,
+		currency_id_b: T::CurrencyId,
 		contribution_a: Balance,
 		contribution_b: Balance,
 	) -> DispatchResult {
 		let trading_pair =
-			TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+			<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 		let mut provision_parameters = match Self::trading_pair_statuses(trading_pair) {
 			TradingPairStatus::<_, _>::Provisioning(provision_parameters) => provision_parameters,
 			_ => return Err(Error::<T>::MustBeProvisioning.into()),
@@ -986,15 +988,15 @@ impl<T: Config> Pallet<T> {
 
 	fn do_add_liquidity(
 		who: &T::AccountId,
-		currency_id_a: CurrencyId,
-		currency_id_b: CurrencyId,
+		currency_id_a: T::CurrencyId,
+		currency_id_b: T::CurrencyId,
 		max_amount_a: Balance,
 		max_amount_b: Balance,
 		min_share_increment: Balance,
 		stake_increment_share: bool,
 	) -> sp_std::result::Result<(Balance, Balance, Balance), DispatchError> {
 		let trading_pair =
-			TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+			<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 		ensure!(
 			matches!(
 				Self::trading_pair_statuses(trading_pair),
@@ -1109,8 +1111,8 @@ impl<T: Config> Pallet<T> {
 	#[transactional]
 	fn do_remove_liquidity(
 		who: &T::AccountId,
-		currency_id_a: CurrencyId,
-		currency_id_b: CurrencyId,
+		currency_id_a: T::CurrencyId,
+		currency_id_b: T::CurrencyId,
 		remove_share: Balance,
 		min_withdrawn_a: Balance,
 		min_withdrawn_b: Balance,
@@ -1120,7 +1122,7 @@ impl<T: Config> Pallet<T> {
 			return Ok((Zero::zero(), Zero::zero()));
 		}
 		let trading_pair =
-			TradingPair::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
+			<TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b).ok_or(Error::<T>::InvalidCurrencyId)?;
 		let dex_share_currency_id = trading_pair.dex_share_currency_id();
 
 		Self::try_mutate_liquidity_pool(
@@ -1171,8 +1173,8 @@ impl<T: Config> Pallet<T> {
 		)
 	}
 
-	fn get_liquidity(currency_id_a: CurrencyId, currency_id_b: CurrencyId) -> (Balance, Balance) {
-		if let Some(trading_pair) = TradingPair::from_currency_ids(currency_id_a, currency_id_b) {
+	fn get_liquidity(currency_id_a: T::CurrencyId, currency_id_b: T::CurrencyId) -> (Balance, Balance) {
+		if let Some(trading_pair) = <TradingPair<T::CurrencyId>>::from_currency_ids(currency_id_a, currency_id_b) {
 			let (pool_0, pool_1) = Self::liquidity_pool(trading_pair);
 			if currency_id_a == trading_pair.first() {
 				(pool_0, pool_1)
@@ -1226,7 +1228,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn get_target_amounts(
-		path: &[CurrencyId],
+		path: &[T::CurrencyId],
 		supply_amount: Balance,
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
 		Self::validate_path(path)?;
@@ -1238,7 +1240,7 @@ impl<T: Config> Pallet<T> {
 		let mut i: usize = 0;
 		while i + 1 < path_length {
 			let trading_pair =
-				TradingPair::from_currency_ids(path[i], path[i + 1]).ok_or(Error::<T>::InvalidCurrencyId)?;
+				<TradingPair<T::CurrencyId>>::from_currency_ids(path[i], path[i + 1]).ok_or(Error::<T>::InvalidCurrencyId)?;
 			ensure!(
 				matches!(
 					Self::trading_pair_statuses(trading_pair),
@@ -1262,7 +1264,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn get_supply_amounts(
-		path: &[CurrencyId],
+		path: &[T::CurrencyId],
 		target_amount: Balance,
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
 		Self::validate_path(path)?;
@@ -1274,7 +1276,7 @@ impl<T: Config> Pallet<T> {
 		let mut i: usize = path_length - 1;
 		while i > 0 {
 			let trading_pair =
-				TradingPair::from_currency_ids(path[i - 1], path[i]).ok_or(Error::<T>::InvalidCurrencyId)?;
+				<TradingPair<T::CurrencyId>>::from_currency_ids(path[i - 1], path[i]).ok_or(Error::<T>::InvalidCurrencyId)?;
 			ensure!(
 				matches!(
 					Self::trading_pair_statuses(trading_pair),
@@ -1297,7 +1299,7 @@ impl<T: Config> Pallet<T> {
 		Ok(supply_amounts)
 	}
 
-	fn validate_path(path: &[CurrencyId]) -> DispatchResult {
+	fn validate_path(path: &[T::CurrencyId]) -> DispatchResult {
 		let path_length = path.len();
 		ensure!(
 			path_length >= 2 && path_length <= T::TradingPathLimit::get().saturated_into(),
@@ -1309,12 +1311,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn _swap(
-		supply_currency_id: CurrencyId,
-		target_currency_id: CurrencyId,
+		supply_currency_id: T::CurrencyId,
+		target_currency_id: T::CurrencyId,
 		supply_increment: Balance,
 		target_decrement: Balance,
 	) -> DispatchResult {
-		if let Some(trading_pair) = TradingPair::from_currency_ids(supply_currency_id, target_currency_id) {
+		if let Some(trading_pair) = <TradingPair<T::CurrencyId>>::from_currency_ids(supply_currency_id, target_currency_id) {
 			Self::try_mutate_liquidity_pool(&trading_pair, |(pool_0, pool_1)| -> DispatchResult {
 				let invariant_before_swap: U256 = U256::from(*pool_0).saturating_mul(U256::from(*pool_1));
 
@@ -1338,7 +1340,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn _swap_by_path(path: &[CurrencyId], amounts: &[Balance]) -> DispatchResult {
+	fn _swap_by_path(path: &[T::CurrencyId], amounts: &[Balance]) -> DispatchResult {
 		let mut i: usize = 0;
 		while i + 1 < path.len() {
 			let (supply_currency_id, target_currency_id) = (path[i], path[i + 1]);
@@ -1358,7 +1360,7 @@ impl<T: Config> Pallet<T> {
 	#[transactional]
 	fn do_swap_with_exact_supply(
 		who: &T::AccountId,
-		path: &[CurrencyId],
+		path: &[T::CurrencyId],
 		supply_amount: Balance,
 		min_target_amount: Balance,
 	) -> sp_std::result::Result<Balance, DispatchError> {
@@ -1386,7 +1388,7 @@ impl<T: Config> Pallet<T> {
 	#[transactional]
 	fn do_swap_with_exact_target(
 		who: &T::AccountId,
-		path: &[CurrencyId],
+		path: &[T::CurrencyId],
 		target_amount: Balance,
 		max_supply_amount: Balance,
 	) -> sp_std::result::Result<Balance, DispatchError> {
@@ -1408,12 +1410,12 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> DEXManager<T::AccountId, Balance, CurrencyId> for Pallet<T> {
-	fn get_liquidity_pool(currency_id_a: CurrencyId, currency_id_b: CurrencyId) -> (Balance, Balance) {
+impl<T: Config> DEXManager<T::AccountId, Balance, T::CurrencyId> for Pallet<T> {
+	fn get_liquidity_pool(currency_id_a: T::CurrencyId, currency_id_b: T::CurrencyId) -> (Balance, Balance) {
 		Self::get_liquidity(currency_id_a, currency_id_b)
 	}
 
-	fn get_swap_amount(path: &[CurrencyId], limit: SwapLimit<Balance>) -> Option<(Balance, Balance)> {
+	fn get_swap_amount(path: &[T::CurrencyId], limit: SwapLimit<Balance>) -> Option<(Balance, Balance)> {
 		match limit {
 			SwapLimit::ExactSupply(exact_supply_amount, minimum_target_amount) => {
 				Self::get_target_amounts(path, exact_supply_amount)
@@ -1441,11 +1443,11 @@ impl<T: Config> DEXManager<T::AccountId, Balance, CurrencyId> for Pallet<T> {
 	}
 
 	fn get_best_price_swap_path(
-		supply_currency_id: CurrencyId,
-		target_currency_id: CurrencyId,
+		supply_currency_id: T::CurrencyId,
+		target_currency_id: T::CurrencyId,
 		limit: SwapLimit<Balance>,
-		alternative_path_joint_list: Vec<Vec<CurrencyId>>,
-	) -> Option<(Vec<CurrencyId>, Balance, Balance)> {
+		alternative_path_joint_list: Vec<Vec<T::CurrencyId>>,
+	) -> Option<(Vec<T::CurrencyId>, Balance, Balance)> {
 		let default_swap_path = vec![supply_currency_id, target_currency_id];
 		let mut maybe_best = Self::get_swap_amount(&default_swap_path, limit)
 			.map(|(supply_amout, target_amount)| (default_swap_path, supply_amout, target_amount));
@@ -1481,7 +1483,7 @@ impl<T: Config> DEXManager<T::AccountId, Balance, CurrencyId> for Pallet<T> {
 
 	fn swap_with_specific_path(
 		who: &T::AccountId,
-		path: &[CurrencyId],
+		path: &[T::CurrencyId],
 		limit: SwapLimit<Balance>,
 	) -> sp_std::result::Result<(Balance, Balance), DispatchError> {
 		match limit {
@@ -1503,8 +1505,8 @@ impl<T: Config> DEXManager<T::AccountId, Balance, CurrencyId> for Pallet<T> {
 	#[transactional]
 	fn add_liquidity(
 		who: &T::AccountId,
-		currency_id_a: CurrencyId,
-		currency_id_b: CurrencyId,
+		currency_id_a: T::CurrencyId,
+		currency_id_b: T::CurrencyId,
 		max_amount_a: Balance,
 		max_amount_b: Balance,
 		min_share_increment: Balance,
@@ -1523,8 +1525,8 @@ impl<T: Config> DEXManager<T::AccountId, Balance, CurrencyId> for Pallet<T> {
 
 	fn remove_liquidity(
 		who: &T::AccountId,
-		currency_id_a: CurrencyId,
-		currency_id_b: CurrencyId,
+		currency_id_a: T::CurrencyId,
+		currency_id_b: T::CurrencyId,
 		remove_share: Balance,
 		min_withdrawn_a: Balance,
 		min_withdrawn_b: Balance,

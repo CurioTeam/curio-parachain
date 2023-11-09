@@ -21,12 +21,25 @@
 
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-use primitives::{CurrencyId, TokenInfo, Balance, AccountId};
+use primitives::{Balance, AccountId};
 use frame_support::assert_ok;
 use orml_traits::MultiCurrencyExtended;
 use sp_runtime::traits::StaticLookup;
 use sp_runtime::SaturatedConversion;
-use crate::{Runtime, Currencies, GetNativeCurrencyId, GetStakingCurrencyId, System, RuntimeEvent};
+use crate::{
+	Runtime, 
+	Currencies, 
+	System, 
+	RuntimeEvent,
+	currency_id::{
+		CurrencyId,
+		TokenInfo
+	},
+	collections::{
+		GetNativeCurrencyId, 
+		GetStakingCurrencyId, 
+	}
+};
 
 pub const NATIVE: CurrencyId = GetNativeCurrencyId::get();
 pub const STAKING: CurrencyId = GetStakingCurrencyId::get();

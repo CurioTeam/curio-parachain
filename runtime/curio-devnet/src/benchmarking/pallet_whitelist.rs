@@ -25,7 +25,7 @@ use sp_std::prelude::*;
 
 use orml_benchmarking::{runtime_benchmarks, whitelisted_caller};
 
-use crate::{Runtime, System, RolesRoot, RuntimeOrigin, AccountId, Whitelist};
+use crate::{Runtime, System, RuntimeOrigin, AccountId, Whitelist};
 
 use pallet_whitelist::Event as PalletEvent;
 use pallet_whitelist::{MAX_NEW_INVESTORS, Investor, InvestorKey};
@@ -55,7 +55,7 @@ runtime_benchmarks! {
     
     add_admin {
         let admin: AccountId = whitelisted_caller();
-    }: _(RuntimeOrigin::signed(RolesRoot::get()), admin.clone())
+    }: _(RuntimeOrigin::root(), admin.clone())
     verify {
         assert_last_event(PalletEvent::AddAdmin { 
             new_admin: admin
@@ -64,8 +64,8 @@ runtime_benchmarks! {
 
     remove_admin {
         let admin: AccountId = whitelisted_caller();
-        Whitelist::add_admin(RuntimeOrigin::signed(RolesRoot::get()), admin.clone()).unwrap();
-    }: _(RuntimeOrigin::signed(RolesRoot::get()), admin.clone())
+        Whitelist::add_admin(RuntimeOrigin::root(), admin.clone()).unwrap();
+    }: _(RuntimeOrigin::root(), admin.clone())
     verify {
         assert_last_event(PalletEvent::RemoveAdmin { 
             admin: admin
@@ -74,7 +74,7 @@ runtime_benchmarks! {
 
     add_manager {
         let admin: AccountId = whitelisted_caller();
-        Whitelist::add_admin(RuntimeOrigin::signed(RolesRoot::get()), admin.clone()).unwrap();
+        Whitelist::add_admin(RuntimeOrigin::root(), admin.clone()).unwrap();
 
         let manager: AccountId = whitelisted_caller();
     }: _(RuntimeOrigin::signed(admin.clone()), manager.clone())
@@ -87,7 +87,7 @@ runtime_benchmarks! {
 
     remove_manager {
         let admin: AccountId = whitelisted_caller();
-        Whitelist::add_admin(RuntimeOrigin::signed(RolesRoot::get()), admin.clone()).unwrap();
+        Whitelist::add_admin(RuntimeOrigin::root(), admin.clone()).unwrap();
 
         let manager: AccountId = whitelisted_caller();
         Whitelist::add_manager(RuntimeOrigin::signed(admin.clone()), manager.clone()).unwrap();
@@ -103,7 +103,7 @@ runtime_benchmarks! {
         let i in 1..MAX_NEW_INVESTORS.into();
 
         let admin: AccountId = whitelisted_caller();
-        Whitelist::add_admin(RuntimeOrigin::signed(RolesRoot::get()), admin.clone()).unwrap();
+        Whitelist::add_admin(RuntimeOrigin::root(), admin.clone()).unwrap();
 
         let investors = investors_from_size(i as usize);
     }: _(RuntimeOrigin::signed(admin.clone()), investors.clone())
@@ -119,7 +119,7 @@ runtime_benchmarks! {
 
     set_investor_status {
         let admin: AccountId = whitelisted_caller();
-        Whitelist::add_admin(RuntimeOrigin::signed(RolesRoot::get()), admin.clone()).unwrap();
+        Whitelist::add_admin(RuntimeOrigin::root(), admin.clone()).unwrap();
 
         let investors = investors_from_size(1 as usize);
         let (_, investor) = investors[0].clone();
@@ -135,7 +135,7 @@ runtime_benchmarks! {
 
     change_investor_address {
         let admin: AccountId = whitelisted_caller();
-        Whitelist::add_admin(RuntimeOrigin::signed(RolesRoot::get()), admin.clone()).unwrap();
+        Whitelist::add_admin(RuntimeOrigin::root(), admin.clone()).unwrap();
 
         let investor = Investor {
             account: AccountId::new([0u8; 32]),
@@ -162,7 +162,7 @@ runtime_benchmarks! {
 
     change_my_address {
         let admin: AccountId = whitelisted_caller();
-        Whitelist::add_admin(RuntimeOrigin::signed(RolesRoot::get()), admin.clone()).unwrap();
+        Whitelist::add_admin(RuntimeOrigin::root(), admin.clone()).unwrap();
 
         let investor_account = AccountId::new([0u8; 32]);
 

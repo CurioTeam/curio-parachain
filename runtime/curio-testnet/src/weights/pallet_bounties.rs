@@ -60,9 +60,9 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 	/// The range of component `d` is `[0, 16384]`.
 	fn propose_bounty(d: u32, ) -> Weight {
 		// Minimum execution time: 45_028 nanoseconds.
-		Weight::from_ref_time(48_653_858)
+		Weight::from_parts(48_653_858, 0)
 			// Standard Error: 28
-			.saturating_add(Weight::from_ref_time(631).saturating_mul(d.into()))
+			.saturating_add(Weight::from_parts(631, 0).saturating_mul(d.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -70,14 +70,14 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 	// Storage: Bounties BountyApprovals (r:1 w:1)
 	fn approve_bounty() -> Weight {
 		// Minimum execution time: 20_637 nanoseconds.
-		Weight::from_ref_time(25_536_000)
+		Weight::from_parts(25_536_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: Bounties Bounties (r:1 w:1)
 	fn propose_curator() -> Weight {
 		// Minimum execution time: 22_174 nanoseconds.
-		Weight::from_ref_time(28_663_000)
+		Weight::from_parts(28_663_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -85,7 +85,7 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:2 w:2)
 	fn unassign_curator() -> Weight {
 		// Minimum execution time: 62_307 nanoseconds.
-		Weight::from_ref_time(63_276_000)
+		Weight::from_parts(63_276_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -93,14 +93,14 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	fn accept_curator() -> Weight {
 		// Minimum execution time: 44_304 nanoseconds.
-		Weight::from_ref_time(44_761_000)
+		Weight::from_parts(44_761_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: Bounties Bounties (r:1 w:1)
 	fn award_bounty() -> Weight {
 		// Minimum execution time: 33_786 nanoseconds.
-		Weight::from_ref_time(34_343_000)
+		Weight::from_parts(34_343_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -109,7 +109,7 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 	// Storage: Bounties BountyDescriptions (r:0 w:1)
 	fn claim_bounty() -> Weight {
 		// Minimum execution time: 101_197 nanoseconds.
-		Weight::from_ref_time(104_527_000)
+		Weight::from_parts(104_527_000, 0)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
@@ -118,7 +118,7 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 	// Storage: Bounties BountyDescriptions (r:0 w:1)
 	fn close_bounty_proposed() -> Weight {
 		// Minimum execution time: 63_878 nanoseconds.
-		Weight::from_ref_time(65_069_000)
+		Weight::from_parts(65_069_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -127,14 +127,14 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 	// Storage: Bounties BountyDescriptions (r:0 w:1)
 	fn close_bounty_active() -> Weight {
 		// Minimum execution time: 75_083 nanoseconds.
-		Weight::from_ref_time(77_223_000)
+		Weight::from_parts(77_223_000, 0)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
 	// Storage: Bounties Bounties (r:1 w:1)
 	fn extend_bounty_expiry() -> Weight {
 		// Minimum execution time: 32_969 nanoseconds.
-		Weight::from_ref_time(35_465_000)
+		Weight::from_parts(35_465_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -144,9 +144,9 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 	/// The range of component `b` is `[0, 100]`.
 	fn spend_funds(b: u32, ) -> Weight {
 		// Minimum execution time: 11_909 nanoseconds.
-		Weight::from_ref_time(1_381_344)
+		Weight::from_parts(1_381_344, 0)
 			// Standard Error: 277_277
-			.saturating_add(Weight::from_ref_time(40_076_561).saturating_mul(b.into()))
+			.saturating_add(Weight::from_parts(40_076_561, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(b.into())))
 			.saturating_add(T::DbWeight::get().writes(1))

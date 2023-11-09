@@ -28,9 +28,9 @@ use sp_std::collections::btree_set::BTreeSet;
 
 use collection_primitives::{
 	Property, PropertyKey, PropertyKeyPermission, PropertyPermission,
-	CollectionId, CollectionPropertiesVec, CollectionPropertiesPermissionsVec,
+	CollectionId, CollectionPropertiesVec, PropertiesPermissionsVec,
 	CollectionMode, CollectionName, CollectionDescription, CollectionTokenPrefix,
-	CreateCollectionData
+	CreateCollectionData, CollectionLimits, SponsoringRateLimit
 };
 
 use mock_support::collections::*;
@@ -78,9 +78,7 @@ impl<T: crate::Config> CollectionInitializer<T> {
 				PropertyKeyPermission { 
 					key: property.key.clone(), 
 					permission: PropertyPermission {
-						mutable: *mutable, 
-						collection_admin: false,
-						token_owner: false
+						mutable: *mutable
 					} 
 				}
 			})
@@ -106,9 +104,7 @@ impl<T: crate::Config> CollectionInitializer<T> {
 			.map(|k| PropertyKeyPermission {
 				key: k.clone(),
 				permission: PropertyPermission {
-					mutable: true,
-					collection_admin: false,
-					token_owner: false
+					mutable: true
 				}
 			})
 			.into_iter();
@@ -144,19 +140,15 @@ impl<T: crate::Config> CollectionInitializer<T> {
 			name: self.name,
 			description: self.description,
 			token_prefix: self.token_prefix,
-			access: None,
 			limits: None,
-			permissions: None,
 			pending_sponsor: None,
 			properties: CollectionPropertiesVec::truncate_from(self.properties),
-			token_property_permissions: CollectionPropertiesPermissionsVec::truncate_from(
+			property_permissions: PropertiesPermissionsVec::truncate_from(
 				self.property_permissions
 			),
 		};
-		
-		let flags = default_collection_flags();
 
-		let collection_id = crate::Pallet::<T>::init_collection(owner.clone(), owner.clone(), data, flags)?;
+		let collection_id = crate::Pallet::<T>::init_collection(owner.clone(), owner.clone(), data)?;
 		let collection = crate::CollectionHandle::<T>::new(collection_id).unwrap();
 		
 		for admin in self.admins {
@@ -168,8 +160,20 @@ impl<T: crate::Config> CollectionInitializer<T> {
 
 	pub fn init_default(self, owner: T::AccountId) -> Result<CollectionId, DispatchError> {
 		let data = default_create_collection_data::<T>();
-		let flags = default_collection_flags();
 
-		crate::Pallet::<T>::init_collection(owner.clone(), owner, data, flags)
+		crate::Pallet::<T>::init_collection(owner.clone(), owner, data)
+	}
+
+	pub fn init_with_sponsor(self, sponsor: T::AccountId, owner: T::AccountId, is_confirmed: bool) -> Result<CollectionId, DispatchError> {
+		let mut data = default_create_collection_data::<T>();
+		data.pending_sponsor = Some(sponsor.clone());
+		let mut collection_limits = CollectionLimits::default();
+		collection_limits.sponsored_data_rate_limit = Some(SponsoringRateLimit::Blocks(5)); 
+		data.limits = Some(collection_limits);
+		let collection_id = crate::Pallet::<T>::init_collection(owner.clone(), owner, data)?;
+		if is_confirmed == true {
+			crate::Pallet::<T>::confirm_sponsorship(collection_id.clone(), &sponsor)?;
+		}
+		Ok(collection_id)
 	}
 }

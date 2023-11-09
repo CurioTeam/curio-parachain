@@ -1,7 +1,19 @@
-.gitignore
+.vscode
+
+# api-tests
+api-tests/dist
+api-tests/node_modules
+api-tests/.env
+# ignore metadata
+api-tests/curio-parachain.json
+
+# main
 **/target/
 *.log
 Cargo.lock
+
+# ignore all polkadot-launch configs except dev-mode-config.json
 polkadot-launch/**
 !polkadot-launch/dev-mode-config.json
-*.json
+
+/*.json

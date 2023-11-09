@@ -26,17 +26,5 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_runtime::FixedU128;
-
-pub mod dex;
-pub use dex::*;
-
-pub mod incentives;
-pub use incentives::*;
-
 pub mod utils;
 pub use utils::*;
-
-pub type ExchangeRate = FixedU128;
-
-pub type Ratio = FixedU128;

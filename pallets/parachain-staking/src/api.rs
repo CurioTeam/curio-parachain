@@ -22,15 +22,19 @@
 // Source https://github.com/KILTprotocol/kilt-node
 // Subject to the GPL-3.0 license.
 
-use crate::{
-	types::BalanceOf, BlocksAuthored, BlocksRewarded, CandidatePool, Config, DelegatorState, InflationConfig, Pallet,
-	Rewards, TotalCollatorStake,
-};
-use frame_support::traits::Currency;
+use frame_support::traits::{Currency, Get};
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	Perquintill,
 };
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
+
+use crate::{
+	types::{BalanceOf, Stake},
+	BlocksAuthored, BlocksRewarded, CandidatePool, Config, DelegatorState, InflationConfig, Pallet,
+	Rewards, TotalCollatorStake,
+};
+
 
 impl<T: Config> Pallet<T> {
 	/// Calculates the staking rewards for a given account address.
@@ -70,7 +74,7 @@ impl<T: Config> Pallet<T> {
 	/// delegators.
 	///
 	/// At least used in Runtime API.
-	pub fn get_staking_rates() -> runtime_api_staking::StakingRates {
+	pub fn get_staking_rates() -> parachain_staking_runtime_api::StakingRates {
 		let total_issuance = T::Currency::total_issuance();
 		let total_stake = TotalCollatorStake::<T>::get();
 		let inflation_config = InflationConfig::<T>::get();
@@ -85,11 +89,121 @@ impl<T: Config> Pallet<T> {
 			delegator_staking_rate.deconstruct(),
 		) * inflation_config.delegator.reward_rate.annual;
 
-		runtime_api_staking::StakingRates {
+		parachain_staking_runtime_api::StakingRates {
 			collator_staking_rate,
 			collator_reward_rate,
 			delegator_staking_rate,
 			delegator_reward_rate,
 		}
+	}
+
+		/// Provides a sorted list of collators most suited for given
+	/// delegator's stake amount determined with some heuristic algorithm.
+	///
+	/// The algorithm takes into account the following factors:
+	/// - Total collator stake: the bigger, the more probably that this collator will
+	/// continue to produce blocks.
+	/// - Number of blocks authored by collator: the more, the more reliable collator is
+	/// - If it is possible to become a delegator of some.
+	/// collator with the given stake amount: if there are free slots or possibility to
+	/// overstake some other delegator.
+	///
+	/// List sorted from most valued collator to the least.
+	pub fn get_sorted_proposed_candidates(balance: T::Balance) -> Vec<T::AccountId> {
+		let top_candidates = Self::selected_candidates();
+		let mut suitable_top_candidates = Vec::new();
+		let mut collators_stake_coefficients = BTreeMap::new();
+		let mut blocks_authored = Vec::new();
+		let mut blocks_authored_coefficients = BTreeMap::new();
+		let mut final_coefficients = Vec::new();
+
+		let stake_coefficent: u32 = 7;
+		let blocks_coefficient: u32 = 3;
+
+		// Got suitable top candidates, which fits for new delegator
+		for i in 0..top_candidates.len() {
+			let candidate;
+			if let Some(account) = Self::candidate_pool(&top_candidates[i]) {
+				candidate = account;
+			} else {
+				continue;
+			}
+			if T::MaxDelegatorsPerCollator::get() as usize > candidate.delegators.len() {
+				suitable_top_candidates.push(Stake {
+					owner: candidate.id,
+					amount: candidate.total,
+				});
+			} else {
+				if candidate.delegators[candidate.delegators.len() - 1].amount < balance.into() {
+					suitable_top_candidates.push(Stake {
+						owner: candidate.id,
+						amount: candidate.total,
+					});
+				}
+			}
+		}
+		// Sorted coefficients of stake
+		let mut current_stake_coeff: u32 = 1;
+		let mut current_stake_coeff_amount = suitable_top_candidates[0].amount;
+		for i in 0..suitable_top_candidates.len() {
+			if suitable_top_candidates[i].amount < current_stake_coeff_amount {
+				current_stake_coeff += 1;
+				current_stake_coeff_amount = suitable_top_candidates[i].amount;
+			}
+
+			collators_stake_coefficients.insert(
+				suitable_top_candidates[i].owner.clone(),
+				current_stake_coeff,
+			);
+		}
+		// Got authored blocks with their accounts into vector
+		for i in 0..suitable_top_candidates.len() {
+			let collator = suitable_top_candidates[i].owner.clone();
+			blocks_authored.push((collator.clone(), Self::blocks_authored(collator)))
+		}
+
+		// Sort vector from bigger to smaller
+		blocks_authored.sort_by(|a, b| b.1.cmp(&a.1));
+		// Convert authored blocks to coefficient
+
+		let mut current_blocks_coeff: u32 = 1;
+		let mut current_blocks_coeff_amount = blocks_authored[0].1;
+
+		for i in 0..blocks_authored.len() {
+			if blocks_authored[i].1 < current_blocks_coeff_amount {
+				current_blocks_coeff += 1;
+				current_blocks_coeff_amount = blocks_authored[i].1;
+			}
+
+			blocks_authored_coefficients.insert(blocks_authored[i].0.clone(), current_blocks_coeff);
+		}
+		// Fill vector with final coefficients
+		for i in suitable_top_candidates {
+			let collator_stake_coefficient;
+			let blocks_authored_coefficient;
+
+			if let Some(stk_coeff) = collators_stake_coefficients.get(&i.owner) {
+				collator_stake_coefficient = stk_coeff;
+			} else {
+				continue;
+			}
+
+			if let Some(blck_coeff) = blocks_authored_coefficients.get(&i.owner) {
+				blocks_authored_coefficient = blck_coeff;
+			} else {
+				continue;
+			}
+
+			let final_stake_coefficient =
+				stake_coefficent.saturating_mul(collator_stake_coefficient.clone());
+			let final_blocks_coefficient =
+				blocks_coefficient.saturating_mul(blocks_authored_coefficient.clone());
+			final_coefficients.push((
+				i.owner.clone(),
+				final_stake_coefficient + final_blocks_coefficient,
+			));
+		}
+		final_coefficients.sort_by(|a, b| a.1.cmp(&b.1));
+		final_coefficients.into_iter().map(|item| item.0).collect()
 	}
 }

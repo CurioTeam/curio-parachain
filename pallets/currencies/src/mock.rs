@@ -35,13 +35,13 @@ use frame_support::{ord_parameter_types, parameter_types,
 };
 use frame_system::EnsureSignedBy;
 use orml_traits::parameter_type_with_key;
-use primitives::{CurrencyId, TokenSymbol};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{AccountIdConversion, IdentityLookup},
 	AccountId32,
 };
+use crate::mock_currency::{CurrencyId, TokenSymbol};
 
 ord_parameter_types! {
 	pub const Alice: AccountId32 = AccountId32::from([4u8; 32]);
@@ -90,23 +90,30 @@ parameter_types! {
 	pub DustAccount: AccountId = PalletId(*b"orml/dst").into_account_truncating();
 }
 
+pub struct MutationHooks;
+impl orml_traits::currency::MutationHooks<AccountId, CurrencyId, Balance> for MutationHooks {
+	type OnDust = orml_tokens::TransferDust<Runtime, DustAccount>;
+	type OnSlash = ();
+	type PreDeposit = ();
+	type PostDeposit = ();
+	type PreTransfer = ();
+	type PostTransfer = ();
+	type OnNewTokenAccount = ();
+	type OnKilledTokenAccount = ();
+}
+
 impl orml_tokens::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type Amount = i64;
 	type CurrencyId = CurrencyId;
 	type ExistentialDeposits = ExistentialDeposits;
-	type OnDust = orml_tokens::TransferDust<Runtime, DustAccount>;
-	type OnDeposit = ();
-	type OnSlash = ();
-	type OnTransfer = ();
+	type CurrencyHooks = MutationHooks;
 	type WeightInfo = ();
 	type MaxLocks = ConstU32<100>;
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
 	type DustRemovalWhitelist = Nothing;
-	type OnNewTokenAccount = ();
-	type OnKilledTokenAccount = ();
 }
 
 pub const NATIVE_CURRENCY_ID: CurrencyId = CurrencyId::Token(TokenSymbol::CGT);
@@ -117,16 +124,30 @@ parameter_types! {
 	pub const GetNativeCurrencyId: CurrencyId = NATIVE_CURRENCY_ID;
 }
 
+#[derive(
+	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo,
+)]
+pub enum HoldReason {
+	/// The NIS Pallet has reserved it for a non-fungible receipt.
+	Nis,
+}
+
 impl pallet_balances::Config for Runtime {
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<50>;
+	type MaxHolds = ConstU32<50>;
+	/// The type for recording an account's balance.
 	type Balance = Balance;
-	type DustRemoval = ();
+	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
+	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<2>;
 	type AccountStore = System;
-	type MaxLocks = ();
-	type MaxReserves = ConstU32<50>;
-	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = ();
+	type MaxLocks = ();
+	type MaxReserves = ();
+	type HoldIdentifier = ();
+	type ReserveIdentifier = [u8; 8];
 }
 
 pub type PalletBalances = pallet_balances::Pallet<Runtime>;
@@ -149,6 +170,7 @@ ord_parameter_types! {
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CurrencyId = CurrencyId;
 	type MultiCurrency = Tokens;
 	type NativeCurrency = AdaptedBasicCurrency;
 	type GetNativeCurrencyId = GetNativeCurrencyId;

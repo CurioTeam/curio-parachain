@@ -96,7 +96,7 @@ use core::ops::Deref;
 use derivative::Derivative;
 use frame_support::{
 	BoundedBTreeMap, ensure, fail, storage::with_transaction, transactional,
-	pallet_prelude::ConstU32,
+	pallet_prelude::{ConstU32, Decode, Encode, TypeInfo},
 	dispatch::{DispatchResult}
 };
 use pallet_common::{
@@ -104,9 +104,9 @@ use pallet_common::{
 	Event as CommonEvent, Pallet as PalletCommon,
 };
 use sp_runtime::{ArithmeticError, DispatchError, TransactionOutcome};
-use sp_std::{vec::Vec, vec, collections::{btree_map::BTreeMap}};
+use sp_std::{vec::Vec, vec, collections::{btree_map::BTreeMap}, fmt::Debug};
 use collection_primitives::{
-	CollectionId, CollectionFlags, CollectionPropertiesVec,
+	CollectionId, CollectionPropertiesVec,
 	CreateCollectionData, MAX_ITEMS_PER_BATCH, MAX_PROPERTIES_PER_ITEM,
 	MAX_REFUNGIBLE_PIECES, Property, PropertyKey, PropertyKeyPermission, PropertyPermission,
 	PropertyScope, PropertyValue, TokenId, TrySetProperty,
@@ -125,46 +125,48 @@ pub mod tests;
 
 pub type TokenBalance = u128;
 
+#[derive(Encode, Decode, Debug, Clone, PartialEq, TypeInfo)]
+pub struct CreateItemData<AccountId> {
+	pub balances: Vec<(AccountId, TokenBalance)>,
+	pub properties: Vec<Property>
+}
+
 // LOG: CrossAccountId -> AccountId
 #[derive(Derivative, Clone)]
-pub struct CreateItemData<T: Config> { //CrossAccountId -> unique frontier
+pub struct ValidatedCreateItemData<T: Config> {
 	#[derivative(Debug(format_with = "bounded::map_debug"))]
-	pub users: BoundedBTreeMap<T::AccountId, TokenBalance, ConstU32<MAX_ITEMS_PER_BATCH>>,
+	pub balances: BoundedBTreeMap<T::AccountId, TokenBalance, ConstU32<MAX_ITEMS_PER_BATCH>>,
 	#[derivative(Debug(format_with = "bounded::vec_debug"))]
-	pub properties: CollectionPropertiesVec, // CollectionProperties -> Properties -> PropertiesMap with bounded size, Key -> Value
+	pub properties: CollectionPropertiesVec,
 }
 
 
-impl<T: Config> CreateItemData<T> {
-	pub fn try_get(user_balances: Vec<(T::AccountId, TokenBalance)>, token_properties: Vec<Property>) -> Result<Self, DispatchError> {
-		let properties = CollectionPropertiesVec::truncate_from(token_properties);
+impl<T: Config> ValidatedCreateItemData<T> {
+	pub fn try_get(data: CreateItemData<T::AccountId>) -> Result<Self, DispatchError> {
+		let CreateItemData::<T::AccountId>{balances, properties} = data;
+		let properties = CollectionPropertiesVec::truncate_from(properties);
 		
-		let user_balances_count = user_balances.len();
-		let users = <BTreeMap<T::AccountId, TokenBalance>>::from_iter(user_balances);
-		if users.len() != user_balances_count {
+		let balances_count = balances.len();
+		let balances = <BTreeMap<T::AccountId, TokenBalance>>::from_iter(balances);
+		if balances.len() != balances_count {
 			fail!(<Error<T>>::UserDuplicatesGiven);
 		}
 
-		if let Ok(users) = BoundedBTreeMap::try_from(users) {
-			Ok(Self { users, properties })
+		if let Ok(balances) = BoundedBTreeMap::try_from(balances) {
+			Ok(Self { balances, properties })
 		} else {
 			fail!(<Error<T>>::InvalidInput);
 		}
 	}
 
-	pub fn try_get_multiple(users_balances: Vec<Vec<(T::AccountId, TokenBalance)>>, tokens_properties: Vec<Vec<Property>>) -> Result<Vec<Self>, DispatchError> {
-		if users_balances.len() != tokens_properties.len() {
-			fail!(<Error<T>>::NotCompleteItemsData);
+	pub fn try_get_multiple(data: Vec<CreateItemData<T::AccountId>>) -> Result<Vec<Self>, DispatchError> {
+		let mut validated_data = <Vec<ValidatedCreateItemData<T>>>::with_capacity(data.len());
+		for item_data in data {
+			let validated_item_data = <ValidatedCreateItemData<T>>::try_get(item_data)?;
+			validated_data.push(validated_item_data);
 		}
 
-		let mut data = <Vec<Self>>::with_capacity(users_balances.len());
-
-		for (user_balances, token_properties) in users_balances.iter().zip(tokens_properties) {
-			let token_data = Self::try_get(user_balances.to_vec(), token_properties)?;
-			data.push(token_data);
-		}
-
-		Ok(data)
+		Ok(validated_data)
 	}
 }
 
@@ -242,7 +244,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	/// Total amount of minted tokens in a collection.
@@ -329,28 +330,60 @@ pub mod pallet {
 		QueryKind = ValueQuery,
 	>;
 
+	/// Collection id (controlled?2), token id (controlled?2)
+	#[pallet::storage]
+	#[pallet::getter(fn refungible_transfer_basket)]
+	pub type RefungibleTransferBasket<T: Config> = StorageNMap<
+		Key = (
+			Key<Blake2_128Concat, CollectionId>,
+			Key<Blake2_128Concat, TokenId>,
+			Key<Twox64Concat, T::AccountId>,
+		),
+		Value = T::BlockNumber,
+		QueryKind = OptionQuery,
+	>;
+
+	/// Last sponsoring of RFT approval in a collection
+	#[pallet::storage]
+	#[pallet::getter(fn refungible_approve_basket)]
+	pub type RefungibleApproveBasket<T: Config> = StorageNMap<
+		Key = (
+			Key<Blake2_128Concat, CollectionId>,
+			Key<Blake2_128Concat, TokenId>,
+			Key<Twox64Concat, T::AccountId>,
+		),
+		Value = T::BlockNumber,
+		QueryKind = OptionQuery,
+	>;
+
 	// LOG: ItemData deprection runtime upgrade hook deleted
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Create RFT collection
+		///
+		/// `init_collection` will take non-refundable deposit for collection creation.
+		///
+		/// - `data`: Contains settings for collection limits and permissions.
+		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::init_collection(
-			data.token_property_permissions.len().try_into().unwrap(), 
+			data.property_permissions.len().try_into().unwrap(), 
 			data.properties.len().try_into().unwrap()
 		))]
 		pub fn init_collection(
 			origin: OriginFor<T>, 
 			data: CreateCollectionData<T::AccountId>, 
-			flags: CollectionFlags
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			Self::_init_collection(who.clone(), who, data, flags)?;
+			Self::_init_collection(who.clone(), who, data)?;
 
 			Ok(())
 		}
 
+		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::destroy_collection())]
 		pub fn destroy_collection(
 			origin: OriginFor<T>, 
@@ -362,6 +395,7 @@ pub mod pallet {
 			Self::_destroy_collection(collection, &who)
 		}
 
+		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_collection_property())]
 		pub fn set_collection_property(
 			origin: OriginFor<T>, 
@@ -374,6 +408,7 @@ pub mod pallet {
 			Self::_set_collection_property(&collection, &who, property)
 		}
 
+		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config>::WeightInfo::delete_collection_property())]
 		pub fn delete_collection_property(
 			origin: OriginFor<T>, 
@@ -386,6 +421,7 @@ pub mod pallet {
 			Self::_delete_collection_property(&collection, &who, property_key)
 		}
 
+		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_collection_properties(properties.len().try_into().unwrap_or(MAX_PROPERTIES_PER_ITEM)))]
 		pub fn set_collection_properties(
 			origin: OriginFor<T>, 
@@ -398,6 +434,7 @@ pub mod pallet {
 			Self::_set_collection_properties(&collection, &who, properties)
 		}
 
+		#[pallet::call_index(5)]
 		#[pallet::weight(<T as Config>::WeightInfo::delete_collection_properties(property_keys.len().try_into().unwrap_or(MAX_PROPERTIES_PER_ITEM)))]
 		pub fn delete_collection_properties(
 			origin: OriginFor<T>, 
@@ -410,6 +447,7 @@ pub mod pallet {
 			Self::_delete_collection_properties(&collection, &who, property_keys)
 		}
 
+		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_property_permission())]
 		pub fn set_property_permission(
 			origin: OriginFor<T>, 
@@ -422,39 +460,40 @@ pub mod pallet {
 			Self::_set_property_permission(&collection, &who, property_permission)
 		}
 
+		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::create_item(
-			user_balances.len().try_into().unwrap_or(MAX_ITEMS_PER_BATCH), 
-			token_properties.len().try_into().unwrap_or(MAX_PROPERTIES_PER_ITEM)
+			data.balances.len().try_into().unwrap_or(MAX_ITEMS_PER_BATCH), 
+			data.properties.len().try_into().unwrap_or(MAX_PROPERTIES_PER_ITEM)
 		))]
 		pub fn create_item(
 			origin: OriginFor<T>, 
 			collection_id: CollectionId,
-			user_balances: Vec<(T::AccountId, TokenBalance)>,
-			token_properties: Vec<Property> 
+			data: CreateItemData<T::AccountId>
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let collection = RefungibleHandle::try_get(collection_id)?;
 
-			let data = <CreateItemData<T>>::try_get(user_balances, token_properties)?;
+			let data = <ValidatedCreateItemData<T>>::try_get(data)?;
 
 			Self::_create_item(&collection, &who, data)
 		}
 
-		#[pallet::weight(<T as Config>::WeightInfo::create_max_item().saturating_mul(users_balances.len().try_into().unwrap_or(MAX_ITEMS_PER_BATCH as u64)))]
+		#[pallet::call_index(8)]
+		#[pallet::weight(<T as Config>::WeightInfo::create_max_item().saturating_mul(data.len().try_into().unwrap_or(MAX_ITEMS_PER_BATCH as u64)))]
 		pub fn create_multiple_items(
 			origin: OriginFor<T>, 
 			collection_id: CollectionId,
-			users_balances: Vec<Vec<(T::AccountId, TokenBalance)>>,
-			tokens_properties: Vec<Vec<Property>>
+			data: Vec<CreateItemData<T::AccountId>>
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let collection = RefungibleHandle::try_get(collection_id)?;
 
-			let data = <CreateItemData::<T>>::try_get_multiple(users_balances, tokens_properties)?;
+			let data = <ValidatedCreateItemData::<T>>::try_get_multiple(data)?;
 
 			Self::_create_multiple_items(&collection, &who, data)
 		}
 
+		#[pallet::call_index(9)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_token_property())]
 		pub fn set_token_property(
 			origin: OriginFor<T>,
@@ -468,6 +507,7 @@ pub mod pallet {
 			Self::_set_token_property(&collection, &who, token_id, property)
 		}
 
+		#[pallet::call_index(10)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_token_properties(properties.len().try_into().unwrap_or(MAX_PROPERTIES_PER_ITEM)))]
 		pub fn set_token_properties(
 			origin: OriginFor<T>,
@@ -481,6 +521,7 @@ pub mod pallet {
 			Self::_set_token_properties(&collection, &who, token_id, properties.into_iter(), false)
 		}
 
+		#[pallet::call_index(11)]
 		#[pallet::weight(<T as Config>::WeightInfo::delete_token_property())]
 		pub fn delete_token_property(
 			origin: OriginFor<T>,
@@ -494,6 +535,7 @@ pub mod pallet {
 			Self::_delete_token_property(&collection, &who, token_id, property_key)
 		}
 
+		#[pallet::call_index(12)]
 		#[pallet::weight(<T as Config>::WeightInfo::delete_token_properties(properties_keys.len().try_into().unwrap_or(MAX_PROPERTIES_PER_ITEM)))]
 		pub fn delete_token_properties(
 			origin: OriginFor<T>,
@@ -507,6 +549,7 @@ pub mod pallet {
 			Self::_delete_token_properties(&collection, &who, token_id, properties_keys.into_iter())
 		}
 
+		#[pallet::call_index(13)]
 		#[pallet::weight(<T as Config>::WeightInfo::transfer())]
 		pub fn transfer(
 			origin: OriginFor<T>,
@@ -521,6 +564,7 @@ pub mod pallet {
 			Self::_transfer(&collection, &from, &to, token_id, amount)
 		}
 
+		#[pallet::call_index(14)]
 		#[pallet::weight(<T as Config>::WeightInfo::transfer_from())]
 		pub fn transfer_from(
 			origin: OriginFor<T>,
@@ -536,6 +580,7 @@ pub mod pallet {
 			Self::_transfer_from(&collection, &spender, &from, &to, token_id, amount)
 		}
 
+		#[pallet::call_index(15)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_allowance())]
 		pub fn set_allowance(
 			origin: OriginFor<T>,
@@ -550,6 +595,7 @@ pub mod pallet {
 			Self::_set_allowance(&collection, &sender, &spender, token_id, amount)
 		}
 
+		#[pallet::call_index(16)]
 		#[pallet::weight(<T as Config>::WeightInfo::burn())]
 		pub fn burn(
 			origin: OriginFor<T>,
@@ -563,6 +609,7 @@ pub mod pallet {
 			Self::_burn(&collection, &who, token_id, amount)
 		}
 
+		#[pallet::call_index(17)]
 		#[pallet::weight(<T as Config>::WeightInfo::burn_from())]
 		pub fn burn_from(
 			origin: OriginFor<T>,
@@ -577,6 +624,7 @@ pub mod pallet {
 			Self::_burn_from(&collection, &who, &from, token_id, amount)
 		}
 
+		#[pallet::call_index(18)]
 		#[pallet::weight(<T as Config>::WeightInfo::repartition())]
 		pub fn repartition(
 			origin: OriginFor<T>,
@@ -590,6 +638,7 @@ pub mod pallet {
 			Self::_repartition(&collection, &who, token_id, amount)
 		}
 
+		#[pallet::call_index(19)]
 		#[pallet::weight(<T as Config>::WeightInfo::toggle_admin())]
 		pub fn toggle_admin(
 			origin: OriginFor<T>,
@@ -601,6 +650,40 @@ pub mod pallet {
 			let collection = RefungibleHandle::try_get(collection_id)?;
 
 			Self::_toggle_admin(&collection, &who, &user, admin)
+		}
+
+		#[pallet::call_index(20)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_sponsor())]
+		pub fn set_sponsor(
+			origin: OriginFor<T>,
+			collection_id: CollectionId,
+			sponsor: T::AccountId
+		) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+
+			Self::_set_sponsor(collection_id, &sender, sponsor)
+		}
+
+		#[pallet::call_index(21)]
+		#[pallet::weight(<T as Config>::WeightInfo::confirm_sponsorship())]
+		pub fn confirm_sponsorship(
+			origin: OriginFor<T>,
+			collection_id: CollectionId
+		) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+
+			Self::_confirm_sponsorship(collection_id, &sender)
+		}
+
+		#[pallet::call_index(22)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_sponsor())]
+		pub fn remove_sponsor(
+			origin: OriginFor<T>,
+			collection_id: CollectionId
+		) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+
+			Self::_remove_sponsor(collection_id, &sender)
 		}
 	}
 }
@@ -617,9 +700,8 @@ impl<T: Config> Pallet<T> {
 		owner: T::AccountId,
 		payer: T::AccountId,
 		data: CreateCollectionData<T::AccountId>,
-		flags: CollectionFlags,
 	) -> Result<CollectionId, DispatchError> {
-		<PalletCommon<T>>::init_collection(owner, payer, data, flags)
+		<PalletCommon<T>>::init_collection(owner, payer, data)
 	}
 
 	/// Destroy RFT collection
@@ -709,6 +791,28 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		<PalletCommon<T>>::toggle_admin(collection, who, user, admin)
 	}
+
+	fn _set_sponsor(
+		collection_id: CollectionId, 
+		sender: &T::AccountId, 
+		sponsor: T::AccountId
+	) -> DispatchResult {
+		<PalletCommon<T>>::set_sponsor(collection_id, sender, sponsor)
+	}
+
+	fn _confirm_sponsorship(
+		collection_id: CollectionId, 
+		sender: &T::AccountId
+	) -> DispatchResult {
+		<PalletCommon<T>>::confirm_sponsorship(collection_id, sender)
+	}
+
+	fn _remove_sponsor(
+		collection_id: CollectionId, 
+		sender: &T::AccountId
+	) -> DispatchResult {
+		<PalletCommon<T>>::remove_sponsor(collection_id, sender)
+	}
 }
 
 // Token related methods
@@ -725,7 +829,7 @@ impl<T: Config> Pallet<T> {
 	fn _create_item(
 		collection: &RefungibleHandle<T>,
 		sender: &T::AccountId,
-		data: CreateItemData<T>,
+		data: ValidatedCreateItemData<T>,
 	) -> DispatchResult {
 		Self::_create_multiple_items(collection, sender, vec![data])
 	}
@@ -746,7 +850,7 @@ impl<T: Config> Pallet<T> {
 	fn _create_multiple_items(
 		collection: &RefungibleHandle<T>,
 		sender: &T::AccountId,
-		data: Vec<CreateItemData<T>>,
+		data: Vec<ValidatedCreateItemData<T>>,
 	) -> DispatchResult {
 
 		collection.check_is_owner_or_admin(sender)?;
@@ -757,7 +861,7 @@ impl<T: Config> Pallet<T> {
 			.iter()
 			.map(|data| {
 				Ok(data
-					.users
+					.balances
 					.iter()
 					.map(|u| u.1)
 					.try_fold(0u128, |acc, v| acc.checked_add(*v))
@@ -782,7 +886,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut balances = BTreeMap::new();
 		for data in &data {
-			for owner in data.users.keys() {
+			for owner in data.balances.keys() {
 				let balance = balances
 					.entry(owner)
 					.or_insert_with(|| <AccountBalance<T>>::get((collection.id, owner)));
@@ -802,7 +906,7 @@ impl<T: Config> Pallet<T> {
 				let token_id = first_token_id + i as u32 + 1;
 				<TotalSupply<T>>::insert((collection.id, token_id), totals[i]);
 
-				for (user, amount) in data.users.iter() {
+				for (user, amount) in data.balances.iter() {
 					if *amount == 0 {
 						continue;
 					}
@@ -833,7 +937,7 @@ impl<T: Config> Pallet<T> {
 			let token_id = first_token_id + i as u32 + 1;
 
 			let receivers = token
-				.users
+				.balances
 				.into_iter()
 				.filter(|(_, amount)| *amount > 0)
 				.collect::<Vec<_>>();
@@ -851,9 +955,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// Check that all given users are either whitelisted or collection admins
-	fn _verify_create_multiple_items_data(collection: &RefungibleHandle<T>, data: &Vec<CreateItemData<T>>) -> DispatchResult {
+	fn _verify_create_multiple_items_data(collection: &RefungibleHandle<T>, data: &Vec<ValidatedCreateItemData<T>>) -> DispatchResult {
 		for item in data.iter() {
-			for user in item.users.keys() {
+			for user in item.balances.keys() {
 				Self::_check_whitelisted_or_collection_admin(collection, user)?;
 			}
 		}

@@ -23,6 +23,7 @@
 
 #![cfg(test)]
 
+use codec::{Encode, Decode, MaxEncodedLen};
 use frame_support::{
     construct_runtime, parameter_types, ord_parameter_types,
 	traits::{
@@ -33,6 +34,7 @@ use frame_support::{
 	}
 };
 use frame_system::{EnsureSignedBy};
+use scale_info::TypeInfo;
 pub use sp_runtime::{
     traits::{
         AccountIdLookup, BlakeTwo256, ConstU32,
@@ -57,9 +59,9 @@ pub use mock_support::collections::*;
 
 pub use collection_primitives::{
 	CreateCollectionData, CollectionMode, CollectionName,
-	CollectionDescription, CollectionTokenPrefix, CollectionPropertiesPermissionsVec,
-	CollectionPropertiesVec, CollectionFlags, Property, PropertyKeyPermission,
-	CollectionId, Collection, CollectionLimits, CollectionPermissions,
+	CollectionDescription, CollectionTokenPrefix, PropertiesPermissionsVec,
+	CollectionPropertiesVec, Property, PropertyKeyPermission,
+	CollectionId, Collection, CollectionLimits,
 	PropertyValue, PropertyKey, TokenId, PropertyPermission,
 
 	MAX_REFUNGIBLE_PIECES
@@ -70,7 +72,7 @@ pub use pallet_common::collection_initializer::CollectionInitializer;
 mod pallet_refungible {
     pub use super::super::*;
 }
-use pallet_refungible::TokenBalance;
+use pallet_refungible::{TokenBalance, CreateItemData};
 
 // Mock accounts
 pub const ROLES_ROOT: AccountId = 777;
@@ -107,20 +109,32 @@ impl frame_system::Config for MockRuntime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: Balance = 0;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
+	pub const ExistentialDeposit: Balance = 2;
+}
+
+#[derive(
+	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo,
+)]
+pub enum HoldReason {
+	/// The NIS Pallet has reserved it for a non-fungible receipt.
+	Nis,
 }
 
 impl pallet_balances::Config for MockRuntime {
-	type MaxLocks = MaxLocks;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<50>;
+	type MaxHolds = ConstU32<50>;
+	/// The type for recording an account's balance.
 	type Balance = Balance;
+	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
+	type MaxLocks = ConstU32<50>;
+	type MaxReserves = ConstU32<50>;
+	type HoldIdentifier = HoldReason;
 	type ReserveIdentifier = [u8; 8];
 }
 
@@ -243,10 +257,12 @@ impl ExtBuilder {
 }
 
 pub fn create_default_token(collection_id: CollectionId, owner: AccountId) -> Result<TokenId, DispatchError> {
-	let balances = default_token_balances();
-	let properties = default_token_properties();
+	let data = CreateItemData::<AccountId> {
+		balances: default_token_balances(),
+		properties: default_token_properties()
+	};
 
-	Refungible::create_item(RuntimeOrigin::signed(owner), collection_id, balances, properties)?;
+	Refungible::create_item(RuntimeOrigin::signed(owner), collection_id, data)?;
 	Ok(get_token_id_from_last_event())
 }
 
@@ -304,9 +320,7 @@ impl TokenInitializer {
 		if let Some(properties_with_mut_flag) = &self.properties {			
 			for (property, is_mutable) in properties_with_mut_flag {
 				let property_permission = PropertyPermission {
-					mutable: *is_mutable,
-					collection_admin: false,
-					token_owner: false
+					mutable: *is_mutable
 				};
 				let property_key_permission = PropertyKeyPermission {
 					key: property.key.clone(),
@@ -325,7 +339,11 @@ impl TokenInitializer {
 		}
 
 		// TODO: refactoring
-		Refungible::create_item(RuntimeOrigin::signed(owner), collection_id, user_balances, properties)?;
+		let data = CreateItemData::<AccountId> {
+			balances: user_balances,
+			properties: properties
+		};
+		Refungible::create_item(RuntimeOrigin::signed(owner), collection_id, data)?;
 		Ok(get_token_id_from_last_event())
 	}
 }

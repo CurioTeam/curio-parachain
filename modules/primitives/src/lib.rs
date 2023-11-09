@@ -28,24 +28,25 @@
 
 use frame_support::{
 	weights::{
-		constants::WEIGHT_PER_SECOND, Weight
+		constants::WEIGHT_REF_TIME_PER_SECOND, 
+		Weight
 	}
 };
 use sp_runtime::{
-    traits::{Verify, IdentifyAccount, BlakeTwo256},
-    generic, MultiSignature, MultiAddress, Perbill
+    traits::{
+		BlakeTwo256,
+		IdentifyAccount, 
+		Verify,
+	},
+    generic, 
+	MultiAddress, 
+	MultiSignature, 
+	Perbill,
 };
-use sp_core::{Encode, Decode, RuntimeDebug, MaxEncodedLen};
-use scale_info::{TypeInfo};
 pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
-
-pub mod currency;
 pub mod time;
-pub use currency::*;
 
 pub use polkadot_runtime_common::{BlockHashCount};
 
@@ -103,48 +104,7 @@ pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(5);
 pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 /// We allow for 0.5 of a second of compute with a 12 second average block time.
-pub const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND
-	.saturating_div(2)
-	.set_proof_size(cumulus_primitives_core::relay_chain::v2::MAX_POV_SIZE as u64);
-
-
-#[derive(Encode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct TradingPair(CurrencyId, CurrencyId);
-
-impl TradingPair {
-	pub fn from_currency_ids(currency_id_a: CurrencyId, currency_id_b: CurrencyId) -> Option<Self> {
-		if currency_id_a.is_trading_pair_currency_id()
-			&& currency_id_b.is_trading_pair_currency_id()
-			&& currency_id_a != currency_id_b
-		{
-			if currency_id_a > currency_id_b {
-				Some(TradingPair(currency_id_b, currency_id_a))
-			} else {
-				Some(TradingPair(currency_id_a, currency_id_b))
-			}
-		} else {
-			None
-		}
-	}
-
-	pub fn first(&self) -> CurrencyId {
-		self.0
-	}
-
-	pub fn second(&self) -> CurrencyId {
-		self.1
-	}
-
-	pub fn dex_share_currency_id(&self) -> CurrencyId {
-		CurrencyId::join_dex_share_currency_id(self.first(), self.second())
-			.expect("shouldn't be invalid! guaranteed by construction")
-	}
-}
-
-impl Decode for TradingPair {
-	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
-		let (first, second): (CurrencyId, CurrencyId) = Decode::decode(input)?;
-		TradingPair::from_currency_ids(first, second).ok_or_else(|| codec::Error::from("invalid currency id"))
-	}
-}
+pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
+	WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
+	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
+);

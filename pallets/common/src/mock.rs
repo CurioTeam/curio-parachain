@@ -50,9 +50,9 @@ pub use mock_support::collections::*;
 
 pub use collection_primitives::{
 	CreateCollectionData, CollectionMode, CollectionName,
-	CollectionDescription, CollectionTokenPrefix, CollectionPropertiesPermissionsVec,
-	CollectionPropertiesVec, CollectionFlags, Property, PropertyKeyPermission,
-	CollectionId, Collection, CollectionLimits, CollectionPermissions,
+	CollectionDescription, CollectionTokenPrefix, PropertiesPermissionsVec,
+	CollectionPropertiesVec, Property, PropertyKeyPermission,
+	CollectionId, Collection, CollectionLimits,
 	PropertyValue, PropertyKey, SponsorshipState, PropertyPermission
 };
 
@@ -96,20 +96,25 @@ impl frame_system::Config for MockRuntime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: Balance = 0;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
+	pub const ExistentialDeposit: Balance = 2;
 }
 
+
 impl pallet_balances::Config for MockRuntime {
-	type MaxLocks = MaxLocks;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<50>;
+	type MaxHolds = ConstU32<50>;
+	/// The type for recording an account's balance.
 	type Balance = Balance;
+	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
+	type MaxLocks = ConstU32<50>;
+	type MaxReserves = ConstU32<50>;
+	type HoldIdentifier = ();
 	type ReserveIdentifier = [u8; 8];
 }
 

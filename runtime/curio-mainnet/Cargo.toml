@@ -42,10 +42,9 @@ pallet-membership.workspace = true
 pallet-multisig.workspace = true
 pallet-preimage.workspace = true
 pallet-proxy.workspace = true
-pallet-randomness-collective-flip.workspace = true
 pallet-scheduler.workspace = true
 pallet-session.workspace = true
-pallet-society.workspace = true
+pallet-sudo.workspace = true
 pallet-timestamp.workspace = true
 pallet-tips.workspace = true
 pallet-transaction-payment.workspace = true
@@ -88,9 +87,23 @@ pallet-collator-selection.workspace = true
 parachain-info.workspace = true
 
 # Curio
+orml-tokens.workspace = true
+orml-traits.workspace = true
+pallet-bridge.workspace = true
+pallet-dex.workspace = true
+pallet-currencies.workspace = true
 primitives.workspace = true
 parachain-staking.workspace = true
-runtime-api-staking.workspace = true
+parachain-staking-runtime-api.workspace = true
+module-currency-id.workspace = true
+bstringify.workspace = true
+
+# Acala
+module-transaction-pause.workspace = true
+# Actually it is a dependency of `module-transaction-pause` but we
+# import this explicitly to turn on `try-runtime` feature which is
+# not passed for this module from `module-transaction-pause/try-runtime`
+acala-primitives.workspace = true
 
 [features]
 default = [
@@ -108,17 +121,25 @@ std = [
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-timestamp/std",
 	"cumulus-primitives-utility/std",
+	"module-currency-id/std",
+	"module-transaction-pause/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
+	"frame-try-runtime/std",
+	"orml-tokens/std",
+	"orml-traits/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
+	"pallet-bridge/std",
 	"pallet-bounties/std",
 	"pallet-collective/std",
 	"pallet-collator-selection/std",
+	"pallet-currencies/std",
 	"pallet-democracy/std",
+	"pallet-dex/std",
 	"pallet-elections-phragmen/std",
 	"pallet-identity/std",
 	"pallet-indices/std",
@@ -126,10 +147,9 @@ std = [
 	"pallet-multisig/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
-	"pallet-randomness-collective-flip/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
-	"pallet-society/std",
+	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-tips/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
@@ -140,9 +160,10 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachain-staking/std",
+	"parachain-staking-runtime-api/std",
 	"polkadot-parachain/std",
 	"polkadot-runtime-common/std",
-	"runtime-api-staking/std",
+	"primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -166,11 +187,15 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"orml-tokens/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
+	"pallet-bridge/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-currencies/runtime-benchmarks",
 	"pallet-democracy/runtime-benchmarks",
+	"pallet-dex/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
@@ -193,6 +218,46 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"acala-primitives/try-runtime",
 	"frame-executive/try-runtime",
-	"frame-try-runtime",
+	"frame-try-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"parachain-info/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-bounties/try-runtime",
+	"pallet-bridge/try-runtime",
+	"pallet-collective/try-runtime",
+	"pallet-collator-selection/try-runtime",
+	"pallet-currencies/try-runtime",
+	"pallet-democracy/try-runtime",
+	"pallet-dex/try-runtime",
+	"pallet-elections-phragmen/try-runtime",
+	"pallet-identity/try-runtime",
+	"pallet-indices/try-runtime",
+	"pallet-membership/try-runtime",
+	"pallet-multisig/try-runtime",
+	"pallet-preimage/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-scheduler/try-runtime",
+	"pallet-sudo/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-tips/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-treasury/try-runtime",
+	"pallet-utility/try-runtime",
+	"pallet-vesting/try-runtime",
+	"pallet-xcm/try-runtime",
+	"parachain-staking/try-runtime",
+	"module-transaction-pause/try-runtime",
+	"orml-tokens/try-runtime",
+	"sp-runtime/try-runtime",
+	"cumulus-pallet-aura-ext/try-runtime",
+	"cumulus-pallet-dmp-queue/try-runtime",
+	"cumulus-pallet-parachain-system/try-runtime",
+	"cumulus-pallet-xcm/try-runtime",
+	"cumulus-pallet-xcmp-queue/try-runtime",
 ]

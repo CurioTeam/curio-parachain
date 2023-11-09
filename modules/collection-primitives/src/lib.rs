@@ -45,7 +45,6 @@ use serde::{Serialize, Deserialize};
 use sp_core::U256;
 use sp_runtime::{ArithmeticError, sp_std::prelude::Vec};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-use bondrewd::Bitfields;
 use frame_support::{BoundedVec, traits::ConstU32};
 use derivative::Derivative;
 use scale_info::TypeInfo;
@@ -248,21 +247,6 @@ impl CollectionMode {
 	}
 }
 
-/// Access mode for some token operations.
-#[derive(Encode, Decode, Eq, Debug, Clone, Copy, PartialEq, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "serde1", derive(Serialize, Deserialize))]
-pub enum AccessMode {
-	/// Access grant for owner and admins. Used as default.
-	Normal,
-	/// Like a [`Normal`](AccessMode::Normal) but also users in allow list.
-	AllowList,
-}
-impl Default for AccessMode {
-	fn default() -> Self {
-		Self::Normal
-	}
-}
-
 /// The state of collection sponsorship.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "serde1", derive(Serialize, Deserialize))]
@@ -309,25 +293,7 @@ pub type CollectionName = BoundedVec<u16, ConstU32<MAX_COLLECTION_NAME_LENGTH>>;
 pub type CollectionDescription = BoundedVec<u16, ConstU32<MAX_COLLECTION_DESCRIPTION_LENGTH>>;
 pub type CollectionTokenPrefix = BoundedVec<u8, ConstU32<MAX_TOKEN_PREFIX_LENGTH>>;
 
-#[derive(Bitfields, Clone, Copy, PartialEq, Eq, Debug, Default)]
-#[bondrewd(enforce_bytes = 1)]
-pub struct CollectionFlags {
-	/// Tokens in foreign collections can be transferred, but not burnt
-	#[bondrewd(bits = "0..1")]
-	pub foreign: bool,
-	/// Supports ERC721Metadata
-	#[bondrewd(bits = "1..2")]
-	pub erc721metadata: bool,
-	/// External collections can't be managed using `unique` api
-	#[bondrewd(bits = "7..8")]
-	pub external: bool,
-
-	#[bondrewd(reserve, bits = "2..7")]
-	pub reserved: u8,
-}
-bondrewd_codec!(CollectionFlags);
-
-// XXX: Versioning and deprecated fields deleted
+// LOG: Versioning and deprecated fields deleted
 /// Base structure for represent collection.
 ///
 /// Used to provide basic functionality for all types of collections.
@@ -356,20 +322,6 @@ pub struct Collection<AccountId> {
 
 	/// Collection limits.
 	pub limits: CollectionLimits,
-
-	/// Collection permissions.
-	pub permissions: CollectionPermissions,
-
-	pub flags: CollectionFlags,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, TypeInfo)]
-#[cfg_attr(feature = "serde1", derive(Serialize, Deserialize))]
-pub struct RpcCollectionFlags {
-	/// Is collection is foreign.
-	pub foreign: bool,
-	/// Collection supports ERC721Metadata.
-	pub erc721metadata: bool,
 }
 
 /// Collection parameters, used in RPC calls (see [`Collection`] for the storage version).
@@ -397,20 +349,11 @@ pub struct RpcCollection<AccountId> {
 	/// Collection limits.
 	pub limits: CollectionLimits,
 
-	/// Collection permissions.
-	pub permissions: CollectionPermissions,
-
-	/// Token property permissions.
-	pub token_property_permissions: Vec<PropertyKeyPermission>,
+	/// Property permissions.
+	pub property_permissions: Vec<PropertyKeyPermission>,
 
 	/// Collection properties.
 	pub properties: Vec<Property>,
-
-	/// Is collection read only.
-	pub read_only: bool,
-
-	/// Extra collection flags
-	pub flags: RpcCollectionFlags,
 }
 
 /// Data used for create collection.
@@ -422,9 +365,6 @@ pub struct CreateCollectionData<AccountId> {
 	/// Collection mode.
 	#[derivative(Default(value = "CollectionMode::NFT"))]
 	pub mode: CollectionMode,
-
-	/// Access mode.
-	pub access: Option<AccessMode>,
 
 	/// Collection name.
 	pub name: CollectionName,
@@ -441,19 +381,15 @@ pub struct CreateCollectionData<AccountId> {
 	/// Collection limits.
 	pub limits: Option<CollectionLimits>,
 
-	/// Collection permissions.
-	pub permissions: Option<CollectionPermissions>,
-
-	/// Token property permissions.
-	pub token_property_permissions: CollectionPropertiesPermissionsVec,
+	/// Property permissions.
+	pub property_permissions: PropertiesPermissionsVec,
 
 	/// Collection properties.
 	pub properties: CollectionPropertiesVec,
 }
 
 /// Bounded vector of properties permissions. Max length is [`MAX_PROPERTIES_PER_ITEM`].
-// TODO: maybe rename to PropertiesPermissionsVec
-pub type CollectionPropertiesPermissionsVec =
+pub type PropertiesPermissionsVec =
 	BoundedVec<PropertyKeyPermission, ConstU32<MAX_PROPERTIES_PER_ITEM>>;
 
 /// Bounded vector of properties. Max length is [`MAX_PROPERTIES_PER_ITEM`].
@@ -552,7 +488,6 @@ impl CollectionLimits {
 			.min(COLLECTION_TOKEN_LIMIT)
 	}
 
-	// TODO: may be replace u32 to mode?
 	/// Get effective value for [`sponsor_transfer_timeout`](self.sponsor_transfer_timeout).
 	pub fn sponsor_transfer_timeout(&self, default: u32) -> u32 {
 		self.sponsor_transfer_timeout
@@ -596,40 +531,6 @@ impl CollectionLimits {
 			SponsoringRateLimit::SponsoringDisabled => None,
 			SponsoringRateLimit::Blocks(v) => Some(v.min(MAX_SPONSOR_TIMEOUT)),
 		}
-	}
-}
-
-// TODO: delete this
-/// Permissions on certain operations within a collection.
-///
-/// Some fields are wrapped in [`Option`], where `None` means chain default.
-///
-/// Update with `pallet_common::Pallet::clamp_permissions`.
-#[derive(Encode, Decode, Debug, Default, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "serde1", derive(Serialize, Deserialize))]
-// When adding/removing fields from this struct - don't forget to also update `pallet_common::Pallet::clamp_permissions`.
-// TODO: move `pallet_common::Pallet::clamp_permissions` into `impl CollectionPermissions`.
-pub struct CollectionPermissions {
-	/// Access mode.
-	///
-	/// * Default - [`AccessMode::Normal`].
-	pub access: Option<AccessMode>,
-
-	/// Minting allowance.
-	///
-	/// * Default - **false**.
-	pub mint_mode: Option<bool>
-}
-
-impl CollectionPermissions {
-	/// Get effective value for [`access`](self.access).
-	pub fn access(&self) -> AccessMode {
-		self.access.unwrap_or(AccessMode::Normal)
-	}
-
-	/// Get effective value for [`mint_mode`](self.mint_mode).
-	pub fn mint_mode(&self) -> bool {
-		self.mint_mode.unwrap_or(false)
 	}
 }
 
@@ -677,15 +578,6 @@ pub struct CreateReFungibleData {
 	#[cfg_attr(feature = "serde1", serde(with = "bounded::vec_serde"))]
 	#[derivative(Debug(format_with = "bounded::vec_debug"))]
 	pub properties: CollectionPropertiesVec,
-}
-
-// TODO: remove this.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "serde1", derive(Serialize, Deserialize))]
-pub enum MetaUpdatePermission {
-	ItemOwner,
-	Admin,
-	None,
 }
 
 /// Enum holding data used for creation of all three item types.
@@ -843,7 +735,7 @@ pub type PropertyKey = BoundedBytes<ConstU32<MAX_PROPERTY_KEY_LENGTH>>;
 /// Property value.
 pub type PropertyValue = BoundedBytes<ConstU32<MAX_PROPERTY_VALUE_LENGTH>>;
 
-// TODO: simplify to mutable flag
+// LOG: simplified to just mutable
 /// Property permission.
 #[derive(Encode, Decode, TypeInfo, Debug, MaxEncodedLen, PartialEq, Clone)]
 #[cfg_attr(feature = "serde1", derive(Serialize, Deserialize))]
@@ -851,31 +743,22 @@ pub struct PropertyPermission {
 	/// Permission to change the property and property permission.
 	///
 	/// If it **false** then you can not change corresponding property even if [`collection_admin`] and [`token_owner`] are **true**.
-	pub mutable: bool,
-
-	/// Change permission for the collection administrator.
-	pub collection_admin: bool,
-
-	/// Permission to change the property for the owner of the token.
-	pub token_owner: bool,
+	pub mutable: bool
 }
 
-// XXX: PropertyPermission::none restricted to mutable = false
+// LOG: PropertyPermission::none restricted to mutable = false
 impl PropertyPermission {
-	/// TODO: doc
+	/// Immutable property permission
 	pub fn unmutable() -> Self {
 		Self {
 			mutable: false,
-			collection_admin: false,
-			token_owner: false,
 		}
 	}
 
+	/// Mutable property permission
 	pub fn mutable() -> Self {
 		Self {
 			mutable: true,
-			collection_admin: false,
-			token_owner: false,
 		}
 	}
 }

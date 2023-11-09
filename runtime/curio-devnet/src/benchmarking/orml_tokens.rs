@@ -25,8 +25,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 use super::utils::{lookup_of_account, set_balance as update_balance, token_unit};
-use crate::{Runtime, Tokens};
-use primitives::{CurrencyId, AccountId, TokenSymbol, Balance};
+use crate::{
+	Runtime, 
+	Tokens,
+	currency_id::{
+		CurrencyId,
+		TokenSymbol
+	}
+};
+use primitives::{AccountId, Balance};
 use sp_std::prelude::*;
 
 use frame_benchmarking::{account, whitelisted_caller};

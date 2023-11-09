@@ -22,7 +22,7 @@ serde = { workspace = true, optional = true, features = ["derive"] }
 
 # Internal dependencies
 
-runtime-api-staking = {path = "../../runtime-api/staking", default-features = false}
+parachain-staking-runtime-api.workspace = true
 
 # Substrate dependencies
 frame-support.workspace = true
@@ -31,7 +31,7 @@ pallet-authorship.workspace = true
 pallet-balances.workspace = true
 pallet-session.workspace = true
 sp-runtime.workspace = true
-sp-staking = {git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31"}
+sp-staking.workspace = true
 sp-std.workspace = true
 
 # Benchmarking dependencies
@@ -47,7 +47,7 @@ std = [
   "codec/std",
   "frame-support/std",
   "frame-system/std",
-  "runtime-api-staking/std",
+  "parachain-staking-runtime-api/std",
   "log/std",
   "pallet-authorship/std",
   "pallet-balances/std",

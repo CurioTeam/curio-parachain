@@ -32,7 +32,7 @@ use crate::{
     TotalSupply, Balance, Allowance,
     Owned, AccountBalance,
     TokensMinted, TokensBurnt,
-    TokenProperties
+    TokenProperties, CreateItemData
 };
 
 // Simple redirection to corresponding common pallet's method
@@ -45,10 +45,10 @@ pub fn init_collection_works() {
     .build()
     .execute_with(|| {
 
-        let data = default_create_collection_data::<MockRuntime>();
-        let flags = default_collection_flags();
+        let mut data = default_create_collection_data::<MockRuntime>();
+        data.pending_sponsor = Some(ALICE);
 
-        assert_ok!(Refungible::init_collection(RuntimeOrigin::signed(ADMIN_1), data.clone(), flags));
+        assert_ok!(Refungible::init_collection(RuntimeOrigin::signed(ADMIN_1), data.clone()));
     });
 }
 
@@ -60,10 +60,9 @@ pub fn init_collection_fails_if_not_wl_admin() {
     .execute_with(|| {
 
         let data = default_create_collection_data::<MockRuntime>();
-        let flags = default_collection_flags();
 
         assert_noop!(
-            Refungible::init_collection(RuntimeOrigin::signed(ADMIN_1), data.clone(), flags),
+            Refungible::init_collection(RuntimeOrigin::signed(ADMIN_1), data.clone()),
             CommonError::<MockRuntime>::NoPermission
         );
     });
@@ -393,7 +392,12 @@ pub fn create_item_works() {
             vec!["PropertyValue1", "PropertyValue2"]
         );
 
-        assert_ok!(Refungible::create_item(RuntimeOrigin::signed(ADMIN_1), collection_id, user_balances.clone(), token_properties));
+        let data = CreateItemData::<AccountId> {
+			balances: user_balances,
+			properties: token_properties
+		};
+
+        assert_ok!(Refungible::create_item(RuntimeOrigin::signed(ADMIN_1), collection_id, data));
     });
 }
 
@@ -410,22 +414,24 @@ pub fn create_multiples_items_works() {
             .init_default(ADMIN_1)
             .expect("Collection init failed");
 
-        let users_balances = vec![
-            vec![(ALICE, 100),(BOB, 150)],
-            vec![(ALICE, 50),(BOB, 250)]
-        ];
-        let tokens_properties = vec![
-            create_properties(
-                vec!["PropertyKey1", "PropertyKey2"], 
-                vec!["PropertyValue1", "PropertyValue2"]
-            ),
-            create_properties(
-                vec!["PropertyKey3", "PropertyKey4"], 
-                vec!["PropertyValue3", "PropertyValue4"]
-            )
+        let data = vec![
+            CreateItemData::<AccountId> {
+                balances: vec![(ALICE, 100),(BOB, 150)],
+                properties: create_properties(
+                    vec!["PropertyKey1", "PropertyKey2"], 
+                    vec!["PropertyValue1", "PropertyValue2"]
+                )
+            },
+            CreateItemData::<AccountId> {
+                balances: vec![(ALICE, 50),(BOB, 250)],
+                properties: create_properties(
+                    vec!["PropertyKey3", "PropertyKey4"], 
+                    vec!["PropertyValue3", "PropertyValue4"]
+                )
+            }
         ];
 
-        assert_ok!(Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_1), collection_id, users_balances.clone(), tokens_properties.clone()));
+        assert_ok!(Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_1), collection_id, data.clone()));
 
         let last_token_id = <TokensMinted<MockRuntime>>::get(collection_id);
         let token_ids = vec![last_token_id - 1, last_token_id];
@@ -434,7 +440,7 @@ pub fn create_multiples_items_works() {
         for (i, token_id) in token_ids.iter().enumerate() {
             let token_id = TokenId(*token_id);
 
-            for property in &tokens_properties[i] {
+            for property in data[i].properties.iter() {
                 System::assert_has_event(RuntimeEvent::Common(CommonEvent::TokenPropertySet(
                     collection_id, 
                     token_id, 
@@ -442,15 +448,15 @@ pub fn create_multiples_items_works() {
                 )));
             }
 
-            for (user, balance) in users_balances[i].clone() {
+            for (user, balance) in data[i].balances.iter() {
                 System::assert_has_event(RuntimeEvent::Common(CommonEvent::ItemCreated(
                     collection_id, 
                     token_id, 
-                    user, 
-                    balance
+                    *user, 
+                    *balance
                 )));
     
-                assert_eq!(<Balance<MockRuntime>>::get((collection_id, token_id, user)), balance);
+                assert_eq!(<Balance<MockRuntime>>::get((collection_id, token_id, user)), *balance);
                 assert_eq!(<Owned<MockRuntime>>::get((collection_id, user, token_id)), true);
             } 
         } 
@@ -472,12 +478,18 @@ pub fn create_multiples_items_works_for_collection_admins() {
 
         assert_ok!(Refungible::toggle_admin(RuntimeOrigin::signed(ADMIN_1), collection_id, ADMIN_2, true));
 
-        let users_balances = vec![
-            vec![(ADMIN_1, 100),(ADMIN_2, 150)],
-            vec![(ADMIN_1, 50),(ADMIN_2, 250)]
+        let data = vec![
+            CreateItemData::<AccountId> {
+                balances: vec![(ALICE, 100),(BOB, 150)],
+                properties: vec![]
+            },
+            CreateItemData::<AccountId> {
+                balances: vec![(ALICE, 50),(BOB, 250)],
+                properties: vec![]
+            }
         ];
 
-        assert_ok!(Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_1), collection_id, users_balances.clone(), vec![vec![], vec![]]));
+        assert_ok!(Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_1), collection_id, data));
     });
 }
 
@@ -494,13 +506,19 @@ pub fn create_multiples_items_fails_if_user_duplicates_for_one_item_given() {
             .init_default(ADMIN_1)
             .expect("Collection init failed");
 
-        let users_balances = vec![
-            vec![(ALICE, 100),(ALICE, 150)],
-            vec![(ALICE, 50),(BOB, 250)]
+        let data = vec![
+            CreateItemData::<AccountId> {
+                balances: vec![(ALICE, 100),(ALICE, 150)],
+                properties: vec![]
+            },
+            CreateItemData::<AccountId> {
+                balances: vec![(ALICE, 50),(BOB, 250)],
+                properties: vec![]
+            }
         ];
 
         assert_noop!(
-            Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_1), collection_id, users_balances, vec![vec![], vec![]]),
+            Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_1), collection_id, data),
             Error::<MockRuntime>::UserDuplicatesGiven
         ); 
     });
@@ -519,13 +537,19 @@ pub fn create_multiples_items_fails_if_not_admin() {
             .init_default(ADMIN_1)
             .expect("Collection init failed");
 
-        let users_balances = vec![
-            vec![(ALICE, 100),(BOB, 150)],
-            vec![(ALICE, 50),(BOB, 250)]
+        let data = vec![
+            CreateItemData::<AccountId> {
+                balances: vec![(ALICE, 100),(BOB, 150)],
+                properties: vec![]
+            },
+            CreateItemData::<AccountId> {
+                balances: vec![(ALICE, 50),(BOB, 250)],
+                properties: vec![]
+            }
         ];
 
         assert_noop!(
-            Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_2), collection_id, users_balances, vec![vec![], vec![]]),
+            Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_2), collection_id, data),
             CommonError::<MockRuntime>::NoPermission
         ); 
     });
@@ -544,14 +568,47 @@ pub fn create_multiples_items_fails_if_not_whitelisted_investor() {
             .init_default(ADMIN_1)
             .expect("Collection init failed");
 
-        let users_balances = vec![
-            vec![(ALICE, 100),(BOB, 150)],
-            vec![(ALICE, 50),(BOB, 250)]
+        let data = vec![
+            CreateItemData::<AccountId> {
+                balances: vec![(ALICE, 100),(BOB, 150)],
+                properties: vec![]
+            },
+            CreateItemData::<AccountId> {
+                balances: vec![(ALICE, 50),(BOB, 250)],
+                properties: vec![]
+            }
         ];
 
         assert_noop!(
-            Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_1), collection_id, users_balances, vec![vec![], vec![]]),
+            Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_1), collection_id, data),
             Error::<MockRuntime>::NeitherWhitelistedNorCollectionAdmin
+        ); 
+    });
+}
+
+#[test]
+pub fn create_multiples_items_fails_if_zero_peices() {
+    ExtBuilder::new()
+    .investors(vec![ALICE])
+    .wl_admins(vec![ADMIN_1])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+
+        let collection_id = CollectionInitializer::<MockRuntime>::new()
+            .init_default(ADMIN_1)
+            .expect("Collection init failed");
+
+        let data = vec![
+            CreateItemData::<AccountId> {
+                balances: vec![],
+                properties: vec![]
+            }
+        ];
+
+        assert_noop!(
+            Refungible::create_multiple_items(RuntimeOrigin::signed(ADMIN_1), collection_id, data),
+            Error::<MockRuntime>::WrongRefungiblePieces
         ); 
     });
 }
@@ -1154,7 +1211,7 @@ pub fn set_allowance_fails_if_not_whitelisted_investors() {
     ExtBuilder::new()
     .investors(vec![ALICE])
     .wl_admins(vec![ADMIN_1, ADMIN_2])
-    .balances(vec![(ADMIN_1, 1_000 * DOLLARS)])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
     .build()
     .execute_with(|| {
 
@@ -1705,6 +1762,62 @@ pub fn toggle_admin_works() {
             collection_id, 
             ADMIN_2,
             false
+        ));
+    });
+}
+
+#[test]
+pub fn set_sponsor_works() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+
+        let collection_id = CollectionInitializer::<MockRuntime>::new()
+            .init_default(ADMIN_1)
+            .expect("Collection init failed");
+
+        assert_ok!(Refungible::set_sponsor(
+            RuntimeOrigin::signed(ADMIN_1), 
+            collection_id, 
+            ALICE
+        ));
+    });
+}
+#[test]
+pub fn confirm_sponsorship_works() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+        let mut data = default_create_collection_data::<MockRuntime>();
+        data.pending_sponsor = Some(ALICE);
+        let collection_id = Common::init_collection(ADMIN_1, ADMIN_1, data.clone())
+            .expect("Init collection failed");
+
+        assert_ok!(Refungible::confirm_sponsorship(
+            RuntimeOrigin::signed(ALICE), 
+            collection_id
+        ));
+    });
+}
+#[test]
+pub fn remove_sponsor_works() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+        let mut data = default_create_collection_data::<MockRuntime>();
+        data.pending_sponsor = Some(ALICE);
+        let collection_id = Common::init_collection(ADMIN_1, ADMIN_1, data.clone())
+            .expect("Init collection failed");
+
+        assert_ok!(Refungible::remove_sponsor(
+            RuntimeOrigin::signed(ADMIN_1), 
+            collection_id
         ));
     });
 }

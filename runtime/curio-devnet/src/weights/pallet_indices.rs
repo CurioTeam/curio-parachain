@@ -56,7 +56,7 @@ impl<T: frame_system::Config> pallet_indices::WeightInfo for WeightInfo<T> {
 	// Storage: Indices Accounts (r:1 w:1)
 	fn claim() -> Weight {
 		// Minimum execution time: 41_757 nanoseconds.
-		Weight::from_ref_time(49_948_000)
+		Weight::from_parts(49_948_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -64,14 +64,14 @@ impl<T: frame_system::Config> pallet_indices::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	fn transfer() -> Weight {
 		// Minimum execution time: 48_609 nanoseconds.
-		Weight::from_ref_time(50_490_000)
+		Weight::from_parts(50_490_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: Indices Accounts (r:1 w:1)
 	fn free() -> Weight {
 		// Minimum execution time: 43_276 nanoseconds.
-		Weight::from_ref_time(43_852_000)
+		Weight::from_parts(43_852_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -79,14 +79,14 @@ impl<T: frame_system::Config> pallet_indices::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	fn force_transfer() -> Weight {
 		// Minimum execution time: 42_729 nanoseconds.
-		Weight::from_ref_time(43_815_000)
+		Weight::from_parts(43_815_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: Indices Accounts (r:1 w:1)
 	fn freeze() -> Weight {
 		// Minimum execution time: 50_529 nanoseconds.
-		Weight::from_ref_time(76_572_000)
+		Weight::from_parts(76_572_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}

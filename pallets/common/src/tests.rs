@@ -43,21 +43,20 @@ pub fn init_collection_works() {
     .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
     .build()
     .execute_with(|| {
-        let data = default_create_collection_data::<MockRuntime>();
-        let flags = default_collection_flags();
+        let mut data = default_create_collection_data::<MockRuntime>();
+        data.pending_sponsor = Some(ALICE);
         let prev_collection_count = CreatedCollectionCount::<MockRuntime>::get();
 
-        let id = Common::init_collection(ADMIN_1, ADMIN_1, data.clone(), flags)
+        let id = Common::init_collection(ADMIN_1, ADMIN_1, data.clone())
             .expect("Init collection failed");
 
         let collection = CollectionById::<MockRuntime>::get(id).expect("Collection not found");
-        let collectoin_count = CreatedCollectionCount::<MockRuntime>::get();
+        let collection_count = CreatedCollectionCount::<MockRuntime>::get();
 
-        assert_eq!(collectoin_count.0, prev_collection_count.0 + 1);
+        assert_eq!(collection_count.0, prev_collection_count.0 + 1);
         assert_eq!(collection.owner, ADMIN_1);
         assert_eq!(collection.limits, CollectionLimits::default());
-        assert_eq!(collection.sponsorship, SponsorshipState::Disabled);
-        assert_eq!(collection.permissions, CollectionPermissions::default());
+        assert_eq!(collection.sponsorship, SponsorshipState::Unconfirmed(ALICE));
 
         System::assert_last_event(RuntimeEvent::Common(crate::Event::CollectionCreated(
             id,
@@ -76,10 +75,8 @@ pub fn init_collection_fails_if_not_whitelist_admin() {
     .execute_with(|| {
         let data = default_create_collection_data::<MockRuntime>();
 
-        let flags = default_collection_flags();
-
         assert_noop!(
-            Common::init_collection(ALICE, ALICE, data.clone(), flags),
+            Common::init_collection(ALICE, ALICE, data.clone()),
             Error::<MockRuntime>::NoPermission
         );
     });
@@ -93,10 +90,9 @@ pub fn init_collection_fails_if_not_sufficient_founds() {
     .build()
     .execute_with(|| {
         let data = default_create_collection_data::<MockRuntime>();
-        let flags = default_collection_flags();
 
         assert_noop!(
-            Common::init_collection(ADMIN_1, ADMIN_1, data.clone(), flags),
+            Common::init_collection(ADMIN_1, ADMIN_1, data.clone()),
             Error::<MockRuntime>::NotSufficientFounds
         );
     });
@@ -550,6 +546,172 @@ pub fn toggle_admin_fails_if_not_whitelist_admin() {
         assert_noop!(
             Common::toggle_admin(&collection, &ADMIN_1, &ALICE, true),
             WhitelistError::<MockRuntime>::NotWhitelistAdmin
+        );
+    });
+}
+
+#[test]
+pub fn set_sponsor_works() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+        let collection_id = CollectionInitializer::<MockRuntime>::new()
+            .init_default(ADMIN_1)
+            .expect("Collection init failed");
+
+        assert_ok!(Common::set_sponsor(collection_id, &ADMIN_1, ALICE));
+        System::assert_last_event(RuntimeEvent::Common(crate::Event::SponsorSet(
+            collection_id, 
+            ALICE
+        )));
+        let collection = CollectionById::<MockRuntime>::get(collection_id).expect("Collection not found");
+        assert_eq!(collection.sponsorship, SponsorshipState::Unconfirmed(ALICE));
+    });
+}
+
+#[test]
+pub fn set_sponsor_fails_if_same_sponsor_given() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+        let mut data = default_create_collection_data::<MockRuntime>();
+        data.pending_sponsor = Some(ALICE);
+        let collection_id = Common::init_collection(ADMIN_1, ADMIN_1, data.clone())
+            .expect("Init collection failed");
+
+        assert_noop!(
+            Common::set_sponsor(collection_id, &ADMIN_1, ALICE),
+            Error::<MockRuntime>::AccountAlreadySponsor
+        );
+
+        assert_ok!(Common::confirm_sponsorship(collection_id, &ALICE));
+        System::assert_last_event(RuntimeEvent::Common(crate::Event::SponsorhipConfirmed(
+            collection_id, 
+            ALICE
+        )));
+
+        assert_noop!(
+            Common::set_sponsor(collection_id, &ADMIN_1, ALICE),
+            Error::<MockRuntime>::AccountAlreadySponsor
+        );
+    });
+}
+
+#[test]
+pub fn set_sponsor_fails_if_not_owner() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1, ADMIN_2])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+        let collection_id = CollectionInitializer::<MockRuntime>::new()
+            .init_default(ADMIN_1)
+            .expect("Collection init failed");
+
+        assert_noop!(
+            Common::set_sponsor(collection_id, &ADMIN_2, ALICE),
+            Error::<MockRuntime>::NoPermission
+        );
+    });
+}
+
+#[test]
+pub fn confirm_sponsorship_works() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+        let mut data = default_create_collection_data::<MockRuntime>();
+        data.pending_sponsor = Some(ALICE);
+        let collection_id = Common::init_collection(ADMIN_1, ADMIN_1, data.clone())
+            .expect("Init collection failed");
+
+        assert_ok!(Common::confirm_sponsorship(collection_id, &ALICE));
+        System::assert_last_event(RuntimeEvent::Common(crate::Event::SponsorhipConfirmed(
+            collection_id, 
+            ALICE
+        )));
+    });
+}
+
+#[test]
+pub fn confirm_sponsorship_fails_if_sender_is_another_account() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+        let mut data = default_create_collection_data::<MockRuntime>();
+        data.pending_sponsor = Some(ALICE);
+        let collection_id = Common::init_collection(ADMIN_1, ADMIN_1, data.clone())
+            .expect("Init collection failed");
+
+        assert_noop!(
+            Common::confirm_sponsorship(collection_id, &BOB),
+            Error::<MockRuntime>::NotUnconfirmedSponsor
+        );
+    });
+}
+
+#[test]
+pub fn remove_sponsor_works() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+        let mut data = default_create_collection_data::<MockRuntime>();
+        data.pending_sponsor = Some(ALICE);
+        let collection_id = Common::init_collection(ADMIN_1, ADMIN_1, data.clone())
+            .expect("Init collection failed");
+
+        assert_ok!(Common::remove_sponsor(collection_id, &ADMIN_1));
+        System::assert_last_event(RuntimeEvent::Common(crate::Event::SponsorshipRemoved(
+            collection_id
+        )));
+        let collection = CollectionById::<MockRuntime>::get(collection_id).expect("Collection not found");
+        assert_eq!(collection.sponsorship, SponsorshipState::Disabled);
+    });
+}
+
+#[test]
+pub fn remove_sponsor_fails_if_not_owner() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1, ADMIN_2])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+        let mut data = default_create_collection_data::<MockRuntime>();
+        data.pending_sponsor = Some(ALICE);
+        let collection_id = Common::init_collection(ADMIN_1, ADMIN_1, data.clone())
+            .expect("Init collection failed");
+
+        assert_noop!(
+            Common::remove_sponsor(collection_id, &ADMIN_2),
+            Error::<MockRuntime>::NoPermission
+        );
+    });
+}
+
+#[test]
+pub fn remove_sponsor_fails_if_sponsorship_already_disabled() {
+    ExtBuilder::new()
+    .wl_admins(vec![ADMIN_1])
+    .balances(vec![(ADMIN_1, 10_000 * DOLLARS)])
+    .build()
+    .execute_with(|| {
+        let collection_id = CollectionInitializer::<MockRuntime>::new()
+            .init_default(ADMIN_1)
+            .expect("Collection init failed");
+
+        assert_noop!(
+            Common::remove_sponsor(collection_id, &ADMIN_1),
+            Error::<MockRuntime>::SponsorshipAlreadyDisabled
         );
     });
 }

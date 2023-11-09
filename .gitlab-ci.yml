@@ -1,0 +1,62 @@
+stages:
+  - test
+  - deploy
+  - release
+
+variables:
+  TESTNET_RUNTIME: "curio-testnet.deb"
+  DEVNET_RUNTIME: "curio-devnet.deb"
+  MAINNET_RUNTIME: "curio-mainnet.deb"
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/curio-runtimes/${CI_COMMIT_TAG}"
+
+test_node:
+  stage: test
+  image: paritytech/ci-linux:production
+  script:
+    - cargo test
+  only:
+    - develop
+
+
+form_deb:
+  stage: deploy
+  image: paritytech/ci-linux:production
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: never
+  before_script:
+    - cargo install cargo-deb
+    - curl --location --output /usr/local/bin/release-cli "https://gitlab.com/api/v4/projects/gitlab-org%2Frelease-cli/packages/generic/release-cli/latest/release-cli-linux-amd64"
+    - chmod +x /usr/local/bin/release-cli
+    - release-cli -v
+  script:
+    - cargo build --release
+    - cargo deb -p curio-parachain-node --no-build -o target/debian/curio-devnet-${CI_COMMIT_TAG}.deb
+    - |
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file target/debian/curio-devnet-${CI_COMMIT_TAG}.deb ${PACKAGE_REGISTRY_URL}/curio-devnet-${CI_COMMIT_TAG}.deb
+    - cargo build --release --features=curio-testnet-runtime
+    - cargo deb -p curio-parachain-node --no-build -o target/debian/curio-testnet-${CI_COMMIT_TAG}.deb
+    - |
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file target/debian/curio-testnet-${CI_COMMIT_TAG}.deb ${PACKAGE_REGISTRY_URL}/curio-testnet-${CI_COMMIT_TAG}.deb
+    - cargo build --release --features=curio-mainnet-runtime
+    - cargo deb -p curio-parachain-node --no-build -o target/debian/curio-mainnet-${CI_COMMIT_TAG}.deb
+    - |
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file target/debian/curio-mainnet-${CI_COMMIT_TAG}.deb ${PACKAGE_REGISTRY_URL}/curio-mainnet-${CI_COMMIT_TAG}.deb
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - |
+      release-cli create --name "Release $CI_COMMIT_TAG" --tag-name $CI_COMMIT_TAG \
+        --assets-link "{\"name\":\"curio-devnet-${CI_COMMIT_TAG}.deb\",\"url\":\"${PACKAGE_REGISTRY_URL}/curio-devnet-${CI_COMMIT_TAG}.deb\"}" \
+        --assets-link "{\"name\":\"curio-testnet-${CI_COMMIT_TAG}.deb\",\"url\":\"${PACKAGE_REGISTRY_URL}/curio-testnet-${CI_COMMIT_TAG}.deb\"}" \
+        --assets-link "{\"name\":\"curio-mainnet-${CI_COMMIT_TAG}.deb\",\"url\":\"${PACKAGE_REGISTRY_URL}/curio-mainnet-${CI_COMMIT_TAG}.deb\"}"
+
+
+#form_docker:
+#  stage: deploy
+#  image: 

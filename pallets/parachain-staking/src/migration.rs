@@ -44,7 +44,15 @@ use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
 
 #[cfg(feature = "try-runtime")]
-use sp_runtime::SaturatedConversion;
+mod try_runtime_imports {
+	pub use sp_runtime::SaturatedConversion;
+	pub use sp_std::{
+		vec,
+		vec::Vec
+	};
+}
+#[cfg(feature = "try-runtime")]
+use try_runtime_imports::*;
 
 // Old delegator type needed for translating storage map
 #[derive(Encode, Decode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
@@ -94,7 +102,7 @@ impl<T: Config> OnRuntimeUpgrade for StakingPayoutRefactor<T> {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<(), &'static str> {
+	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
 		let current = Pallet::<T>::on_chain_storage_version();
 
 		assert_eq!(
@@ -127,11 +135,11 @@ impl<T: Config> OnRuntimeUpgrade for StakingPayoutRefactor<T> {
 		// migration
 		CounterForDelegators::<T>::put(DelegatorState::<T>::iter_keys().count().saturated_into::<u32>());
 
-		Ok(())
+		Ok(vec![])
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade() -> Result<(), &'static str> {
+	fn post_upgrade(_: Vec<u8>) -> Result<(), &'static str> {
 		// new version must be set.
 		let onchain = Pallet::<T>::on_chain_storage_version();
 

@@ -55,13 +55,13 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
 	fn spend() -> Weight {
 		// Minimum execution time: 380 nanoseconds.
-		Weight::from_ref_time(492_000)
+		Weight::from_parts(492_000, 0)
 	}
 	// Storage: Treasury ProposalCount (r:1 w:1)
 	// Storage: Treasury Proposals (r:0 w:1)
 	fn propose_spend() -> Weight {
 		// Minimum execution time: 43_393 nanoseconds.
-		Weight::from_ref_time(45_976_000)
+		Weight::from_parts(45_976_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -69,7 +69,7 @@ impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:2 w:2)
 	fn reject_proposal() -> Weight {
 		// Minimum execution time: 59_343 nanoseconds.
-		Weight::from_ref_time(61_241_000)
+		Weight::from_parts(61_241_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -78,16 +78,16 @@ impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
 	/// The range of component `p` is `[0, 99]`.
 	fn approve_proposal(p: u32, ) -> Weight {
 		// Minimum execution time: 16_992 nanoseconds.
-		Weight::from_ref_time(22_846_243)
+		Weight::from_parts(22_846_243, 0)
 			// Standard Error: 2_272
-			.saturating_add(Weight::from_ref_time(57_907).saturating_mul(p.into()))
+			.saturating_add(Weight::from_parts(57_907, 0).saturating_mul(p.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Treasury Approvals (r:1 w:1)
 	fn remove_approval() -> Weight {
 		// Minimum execution time: 14_256 nanoseconds.
-		Weight::from_ref_time(21_647_000)
+		Weight::from_parts(21_647_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -98,9 +98,9 @@ impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
 	/// The range of component `p` is `[0, 100]`.
 	fn on_initialize_proposals(p: u32, ) -> Weight {
 		// Minimum execution time: 53_284 nanoseconds.
-		Weight::from_ref_time(94_995_094)
+		Weight::from_parts(94_995_094, 0)
 			// Standard Error: 26_119
-			.saturating_add(Weight::from_ref_time(36_672_749).saturating_mul(p.into()))
+			.saturating_add(Weight::from_parts(36_672_749, 0).saturating_mul(p.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(p.into())))
 			.saturating_add(T::DbWeight::get().writes(3))

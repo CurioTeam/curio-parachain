@@ -60,7 +60,6 @@ pub mod vec_serde {
 		V: de::Deserialize<'de>,
 		S: Get<u32>,
 	{
-		// TODO: Implement custom visitor, which will limit vec size at parse time? Will serde only be used by chainspec?
 		let vec = <Vec<V>>::deserialize(deserializer)?;
 		let len = vec.len();
 		TryFrom::try_from(vec).map_err(|_| D::Error::invalid_length(len, &"lesser size"))

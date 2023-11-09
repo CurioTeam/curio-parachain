@@ -16,7 +16,7 @@ sp-std.workspace = true
 
 frame-support.workspace = true
 frame-system.workspace = true
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.31" }
+frame-benchmarking = { workspace = true, optional = true }
 
 orml-traits.workspace = true
 orml-utilities.workspace = true
@@ -32,6 +32,9 @@ hex-literal.workspace = true
 sp-core = { workspace = true, features = ["std"] }
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-timestamp = { workspace = true, features = ["std"] }
+module-currency-id.workspace = true
+num_enum.workspace = true
+bstringify.workspace = true
 
 
 [features]
@@ -52,6 +55,7 @@ std = [
 	"orml-utilities/std",
 	"primitives/std",
 	"module-support/std",
+	"module-currency-id/std"
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = [

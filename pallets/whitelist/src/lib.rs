@@ -100,7 +100,6 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	/// [InvestorKey] mappend to [Investor]
@@ -247,6 +246,7 @@ pub mod pallet {
 		/// Fails:
 		/// - with [PermissionDenied](crate::pallet::Error::PermissionDenied) when origin is not `RolesRoot`
 		/// - with [AdminExists](crate::pallet::Error::AdminExists) when given AccountId is already admin
+		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::add_admin())]
 		pub fn add_admin(origin: OriginFor<T>, new_admin: T::AccountId) -> DispatchResult {
 			T::RolesRoot::ensure_origin(origin)?;
@@ -263,6 +263,7 @@ pub mod pallet {
 		/// Fails:
 		/// - with [PermissionDenied](crate::pallet::Error::PermissionDenied) when origin is not `RolesRoot`
 		/// - with [NotAdmin](crate::pallet::Error::NotAdmin) when given AccountId is not admin
+		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::remove_admin())]
 		pub fn remove_admin(origin: OriginFor<T>, admin: T::AccountId) -> DispatchResult {
 			T::RolesRoot::ensure_origin(origin)?;
@@ -279,6 +280,7 @@ pub mod pallet {
 		/// Fails:
 		/// - with [PermissionDenied](crate::pallet::Error::PermissionDenied) when origin is not `Admin`
 		/// - with [ManagerExists](crate::pallet::Error::ManagerExists) when given AccountId is already manager
+		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::add_manager())]
 		pub fn add_manager(origin: OriginFor<T>, new_manager: T::AccountId) -> DispatchResult {
 			let who = Self::ensure_origin_is_admin(origin)?;
@@ -295,6 +297,7 @@ pub mod pallet {
 		/// Fails:
 		/// - with [PermissionDenied](crate::pallet::Error::PermissionDenied) when origin is not `Admin`
 		/// - with [NotManager](crate::pallet::Error::NotManager) when given AccountId is not manager
+		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config>::WeightInfo::remove_manager())]
 		pub fn remove_manager(origin: OriginFor<T>, manager: T::AccountId) -> DispatchResult {
 			let who = Self::ensure_origin_is_admin(origin)?;
@@ -314,6 +317,7 @@ pub mod pallet {
 		/// - with [AlreadyActive](crate::pallet::Error::AlreadyActive) when given AccountId is not investor
 		/// - with [AlreadyNotActive](crate::pallet::Error::AlreadyNotActive) when given AccountId is not investor
 		/// - with [InvalidInput](crate::pallet::Error::InvalidInput) when `new_investors` is empty or break [MAX_NEW_INVESTORS]
+		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::add_investors(new_investors.len() as u32))]
 		pub fn add_investors(origin: OriginFor<T>, new_investors: Vec<(InvestorKey, Investor<T::AccountId>)>) -> DispatchResult {
 			let who = Self::ensure_origin_is_admin_or_manager(origin)?;
@@ -334,6 +338,7 @@ pub mod pallet {
 		/// - with [AccountAlreadyInvestor](crate::pallet::Error::AccountAlreadyInvestor) when input contains AccountId which is already an investor
 		/// - with [KeyDuplicate](crate::pallet::Error::KeyDuplicate) when input contains two equal [InvestorKey]
 		/// - with [InvestorKeyExists](crate::pallet::Error::InvestorKeyExists) when given [InvestorKey] is already used
+		#[pallet::call_index(5)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_investor_status())]
 		pub fn set_investor_status(origin: OriginFor<T>, investor_account: T::AccountId, is_active: bool) -> DispatchResult {
 			let who = Self::ensure_origin_is_admin_or_manager(origin)?;
@@ -352,6 +357,7 @@ pub mod pallet {
 		/// - with [PermissionDenied](crate::pallet::Error::PermissionDenied) when origin is not `Admin`
 		/// - with [NotInvestor](crate::pallet::Error::NotInvestor) when given AccountId is not investor
 		/// - with [SameAddress](crate::pallet::Error::SameAddress) when input contains equal AccountIds
+		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::change_investor_address())]
 		pub fn change_investor_address(origin: OriginFor<T>, investor_account: T::AccountId, new_account: T::AccountId) -> DispatchResult {
 			let who = Self::ensure_origin_is_admin(origin)?;
@@ -369,6 +375,7 @@ pub mod pallet {
 		/// Fails:
 		/// - with [NotInvestor](crate::pallet::Error::NotInvestor) when RuntimeOrigin is not investor
 		/// - with [SameAddress](crate::pallet::Error::SameAddress) when input contains equal AccountIds
+		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::change_my_address())]
 		pub fn change_my_address(origin: OriginFor<T>, new_account: T::AccountId) -> DispatchResult {
 			let who = ensure_signed(origin)?;

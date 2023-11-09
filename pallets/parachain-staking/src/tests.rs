@@ -30,7 +30,7 @@ use frame_support::{
 	assert_noop, assert_ok, storage::bounded_btree_map::BoundedBTreeMap, traits::EstimateNextSessionRotation,
 	BoundedVec,
 };
-use runtime_api_staking::StakingRates;
+use parachain_staking_runtime_api::StakingRates;
 use pallet_authorship::EventHandler;
 use pallet_balances::{BalanceLock, Error as BalancesError, Reasons};
 use pallet_session::{SessionManager, ShouldEndSession};
@@ -4378,5 +4378,130 @@ fn api_get_staking_rates() {
 			rates.delegator_staking_rate = Perquintill::from_percent(50);
 			rates.delegator_reward_rate = Perquintill::from_percent(4);
 			assert_eq!(rates, StakePallet::get_staking_rates());
+		});
+}
+
+#[test]
+fn get_only_bigger_collator_first() {
+	let min_stake: Balance = 10;
+	ExtBuilder::default()
+		.with_balances(vec![(1, 2 * min_stake), (2, 2 * min_stake)])
+		.with_collators(vec![(1, min_stake), (2, 2 * min_stake)])
+		.build()
+		.execute_with(|| {
+			assert_eq!(
+				StakePallet::get_sorted_proposed_candidates(min_stake),
+				vec![2, 1]
+			);
+		});
+}
+
+#[test]
+fn get_collator_with_biggest_delegator_stake() {
+	let min_stake: Balance = 10;
+	ExtBuilder::default()
+		.with_balances(vec![
+			(1, 2 * min_stake),
+			(2, 2 * min_stake),
+			(3, 2 * min_stake),
+			(4, 2 * min_stake),
+		])
+		.with_collators(vec![(1, min_stake), (2, 2 * min_stake)])
+		.with_delegators(vec![(3, 1, 2 * min_stake), (4, 1, 2 * min_stake)])
+		.build()
+		.execute_with(|| {
+			assert_eq!(
+				StakePallet::get_sorted_proposed_candidates(min_stake),
+				vec![1, 2]
+			);
+		});
+}
+
+#[test]
+fn get_collator_with_more_authored_blocks() {
+	let min_stake: Balance = 10;
+	ExtBuilder::default()
+		.with_balances(vec![(1, min_stake), (2, min_stake)])
+		.with_collators(vec![(1, min_stake), (2, min_stake)])
+		.build()
+		.execute_with(|| {
+			StakePallet::note_author(2);
+
+			roll_to(
+				10,
+				vec![
+					// we're already in block 1, so cant note_author for block 1
+					None,
+					Some(2),
+					Some(2),
+					Some(2),
+					Some(2),
+					Some(2),
+					Some(2),
+					Some(2),
+					Some(1),
+				],
+			);
+
+			assert_eq!(
+				StakePallet::get_sorted_proposed_candidates(min_stake),
+				vec![2, 1]
+			);
+		});
+}
+
+#[test]
+fn one_of_collators_full() {
+	let min_stake: Balance = 10;
+	ExtBuilder::default()
+		.with_balances(vec![
+			(1, 2 * min_stake),
+			(2, 2 * min_stake),
+			(3, 2 * min_stake),
+			(4, 2 * min_stake),
+			(5, 2 * min_stake),
+			(6, 2 * min_stake),
+		])
+		.with_collators(vec![(1, min_stake), (2, min_stake)])
+		.with_delegators(vec![
+			(3, 1, 2 * min_stake),
+			(4, 1, 2 * min_stake),
+			(5, 1, 2 * min_stake),
+			(6, 1, 2 * min_stake),
+		])
+		.build()
+		.execute_with(|| {
+			assert_eq!(
+				StakePallet::get_sorted_proposed_candidates(min_stake),
+				vec![2]
+			);
+		});
+}
+
+#[test]
+fn one_of_collators_full_but_our_balance_greater() {
+	let min_stake: Balance = 10;
+	ExtBuilder::default()
+		.with_balances(vec![
+			(1, 2 * min_stake),
+			(2, 2 * min_stake),
+			(3, 2 * min_stake),
+			(4, 2 * min_stake),
+			(5, 2 * min_stake),
+			(6, 2 * min_stake),
+		])
+		.with_collators(vec![(1, min_stake), (2, min_stake)])
+		.with_delegators(vec![
+			(3, 1, 2 * min_stake),
+			(4, 1, 2 * min_stake),
+			(5, 1, 2 * min_stake),
+			(6, 1, min_stake),
+		])
+		.build()
+		.execute_with(|| {
+			assert_eq!(
+				StakePallet::get_sorted_proposed_candidates(2 * min_stake),
+				vec![1, 2]
+			);
 		});
 }

@@ -74,6 +74,9 @@ pub trait WeightInfo {
 	fn burn_from() -> Weight;
 	fn repartition() -> Weight;
 	fn toggle_admin() -> Weight;
+	fn set_sponsor() -> Weight;
+	fn confirm_sponsorship() -> Weight;
+	fn remove_sponsor() -> Weight;
 }
 
 /// Weight functions for `pallet_refungible`.
@@ -88,11 +91,11 @@ impl WeightInfo for () {
 	/// The range of component `j` is `[1, 64]`.
 	fn init_collection(i: u32, j: u32, ) -> Weight {
 		// Minimum execution time: 93_165 nanoseconds.
-		Weight::from_ref_time(61_994_232 as u64)
+		Weight::from_parts(61_994_232 as u64, 0)
 			// Standard Error: 23_402
-			.saturating_add(Weight::from_ref_time(518_223 as u64).saturating_mul(i as u64))
+			.saturating_add(Weight::from_parts(518_223 as u64, 0).saturating_mul(i as u64))
 			// Standard Error: 23_402
-			.saturating_add(Weight::from_ref_time(821_422 as u64).saturating_mul(j as u64))
+			.saturating_add(Weight::from_parts(821_422 as u64, 0).saturating_mul(j as u64))
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
@@ -105,7 +108,7 @@ impl WeightInfo for () {
 	// Storage: Refungible TokensBurnt (r:0 w:1)
 	fn destroy_collection() -> Weight {
 		// Minimum execution time: 70_302 nanoseconds.
-		Weight::from_ref_time(83_326_000 as u64)
+		Weight::from_parts(83_326_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(6 as u64))
 	}
@@ -114,7 +117,7 @@ impl WeightInfo for () {
 	// Storage: Common CollectionProperties (r:1 w:1)
 	fn set_collection_property() -> Weight {
 		// Minimum execution time: 113_202 nanoseconds.
-		Weight::from_ref_time(120_015_000 as u64)
+		Weight::from_parts(120_015_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -122,7 +125,7 @@ impl WeightInfo for () {
 	// Storage: Common CollectionProperties (r:1 w:1)
 	fn delete_collection_property() -> Weight {
 		// Minimum execution time: 73_859 nanoseconds.
-		Weight::from_ref_time(76_193_000 as u64)
+		Weight::from_parts(76_193_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -132,9 +135,9 @@ impl WeightInfo for () {
 	/// The range of component `k` is `[1, 64]`.
 	fn set_collection_properties(k: u32, ) -> Weight {
 		// Minimum execution time: 100_588 nanoseconds.
-		Weight::from_ref_time(189_427_488 as u64)
+		Weight::from_parts(189_427_488 as u64, 0)
 			// Standard Error: 557_403
-			.saturating_add(Weight::from_ref_time(31_744_239 as u64).saturating_mul(k as u64))
+			.saturating_add(Weight::from_parts(31_744_239 as u64, 0).saturating_mul(k as u64))
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -143,9 +146,9 @@ impl WeightInfo for () {
 	/// The range of component `k` is `[1, 64]`.
 	fn delete_collection_properties(k: u32, ) -> Weight {
 		// Minimum execution time: 76_163 nanoseconds.
-		Weight::from_ref_time(204_362_925 as u64)
+		Weight::from_parts(204_362_925 as u64, 0)
 			// Standard Error: 342_598
-			.saturating_add(Weight::from_ref_time(19_053_434 as u64).saturating_mul(k as u64))
+			.saturating_add(Weight::from_parts(19_053_434 as u64, 0).saturating_mul(k as u64))
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -153,7 +156,7 @@ impl WeightInfo for () {
 	// Storage: Common CollectionPropertyPermissions (r:1 w:1)
 	fn set_property_permission() -> Weight {
 		// Minimum execution time: 83_767 nanoseconds.
-		Weight::from_ref_time(98_224_000 as u64)
+		Weight::from_parts(98_224_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -171,11 +174,11 @@ impl WeightInfo for () {
 	/// The range of component `p` is `[1, 64]`.
 	fn create_item(l: u32, p: u32, ) -> Weight {
 		// Minimum execution time: 2_174_522 nanoseconds.
-		Weight::from_ref_time(102_744_053 as u64)
+		Weight::from_parts(102_744_053 as u64, 0)
 			// Standard Error: 219_067
-			.saturating_add(Weight::from_ref_time(14_611_364 as u64).saturating_mul(l as u64))
+			.saturating_add(Weight::from_parts(14_611_364 as u64, 0).saturating_mul(l as u64))
 			// Standard Error: 687_933
-			.saturating_add(Weight::from_ref_time(32_968_286 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_parts(32_968_286 as u64, 0).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(4 as u64))
 			.saturating_add(RocksDbWeight::get().reads((3 as u64).saturating_mul(l as u64)))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
@@ -193,7 +196,7 @@ impl WeightInfo for () {
 	// Storage: Refungible Owned (r:0 w:200)
 	fn create_max_item() -> Weight {
 		// Minimum execution time: 5_117_943 nanoseconds.
-		Weight::from_ref_time(5_347_973_000 as u64)
+		Weight::from_parts(5_347_973_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(604 as u64))
 			.saturating_add(RocksDbWeight::get().writes(603 as u64))
 	}
@@ -202,7 +205,7 @@ impl WeightInfo for () {
 	// Storage: Refungible TokenProperties (r:1 w:1)
 	fn set_token_property() -> Weight {
 		// Minimum execution time: 190_587 nanoseconds.
-		Weight::from_ref_time(220_433_000 as u64)
+		Weight::from_parts(220_433_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -212,9 +215,9 @@ impl WeightInfo for () {
 	/// The range of component `i` is `[1, 64]`.
 	fn set_token_properties(i: u32, ) -> Weight {
 		// Minimum execution time: 186_700 nanoseconds.
-		Weight::from_ref_time(154_048_734 as u64)
+		Weight::from_parts(154_048_734 as u64, 0)
 			// Standard Error: 610_143
-			.saturating_add(Weight::from_ref_time(42_422_869 as u64).saturating_mul(i as u64))
+			.saturating_add(Weight::from_parts(42_422_869 as u64, 0).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -223,7 +226,7 @@ impl WeightInfo for () {
 	// Storage: Refungible TokenProperties (r:1 w:1)
 	fn delete_token_property() -> Weight {
 		// Minimum execution time: 188_312 nanoseconds.
-		Weight::from_ref_time(195_466_000 as u64)
+		Weight::from_parts(195_466_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -233,9 +236,9 @@ impl WeightInfo for () {
 	/// The range of component `i` is `[1, 64]`.
 	fn delete_token_properties(i: u32, ) -> Weight {
 		// Minimum execution time: 190_026 nanoseconds.
-		Weight::from_ref_time(270_155_264 as u64)
+		Weight::from_parts(270_155_264 as u64, 0)
 			// Standard Error: 844_835
-			.saturating_add(Weight::from_ref_time(32_669_187 as u64).saturating_mul(i as u64))
+			.saturating_add(Weight::from_parts(32_669_187 as u64, 0).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -247,7 +250,7 @@ impl WeightInfo for () {
 	// Storage: Refungible Owned (r:0 w:1)
 	fn transfer() -> Weight {
 		// Minimum execution time: 184_094 nanoseconds.
-		Weight::from_ref_time(199_713_000 as u64)
+		Weight::from_parts(199_713_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(8 as u64))
 			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
@@ -258,7 +261,7 @@ impl WeightInfo for () {
 	// Storage: Refungible Allowance (r:0 w:1)
 	fn set_allowance() -> Weight {
 		// Minimum execution time: 163_046 nanoseconds.
-		Weight::from_ref_time(180_148_000 as u64)
+		Weight::from_parts(180_148_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(6 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -271,7 +274,7 @@ impl WeightInfo for () {
 	// Storage: Refungible Owned (r:0 w:1)
 	fn transfer_from() -> Weight {
 		// Minimum execution time: 216_977 nanoseconds.
-		Weight::from_ref_time(263_604_000 as u64)
+		Weight::from_parts(263_604_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(11 as u64))
 			.saturating_add(RocksDbWeight::get().writes(5 as u64))
 	}
@@ -282,7 +285,7 @@ impl WeightInfo for () {
 	// Storage: Refungible Owned (r:0 w:1)
 	fn burn() -> Weight {
 		// Minimum execution time: 147_195 nanoseconds.
-		Weight::from_ref_time(162_414_000 as u64)
+		Weight::from_parts(162_414_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(4 as u64))
 			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
@@ -296,7 +299,7 @@ impl WeightInfo for () {
 	// Storage: Refungible Owned (r:0 w:1)
 	fn burn_from() -> Weight {
 		// Minimum execution time: 199_343 nanoseconds.
-		Weight::from_ref_time(209_342_000 as u64)
+		Weight::from_parts(209_342_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(9 as u64))
 			.saturating_add(RocksDbWeight::get().writes(5 as u64))
 	}
@@ -305,7 +308,7 @@ impl WeightInfo for () {
 	// Storage: Refungible Balance (r:1 w:1)
 	fn repartition() -> Weight {
 		// Minimum execution time: 50_956 nanoseconds.
-		Weight::from_ref_time(53_300_000 as u64)
+		Weight::from_parts(53_300_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
@@ -315,8 +318,12 @@ impl WeightInfo for () {
 	// Storage: Common AdminAmount (r:1 w:1)
 	fn toggle_admin() -> Weight {
 		// Minimum execution time: 129_272 nanoseconds.
-		Weight::from_ref_time(158_387_000 as u64)
+		Weight::from_parts(158_387_000 as u64, 0)
 			.saturating_add(RocksDbWeight::get().reads(4 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
+
+	fn set_sponsor() -> Weight { todo!() }
+	fn confirm_sponsorship() -> Weight { todo!() }
+	fn remove_sponsor() -> Weight { todo!() }
 }

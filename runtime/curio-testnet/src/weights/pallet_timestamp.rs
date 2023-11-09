@@ -56,12 +56,12 @@ impl<T: frame_system::Config> pallet_timestamp::WeightInfo for WeightInfo<T> {
 	// Storage: Timestamp Now (r:1 w:1)
 	fn set() -> Weight {
 		// Minimum execution time: 11_490 nanoseconds.
-		Weight::from_ref_time(11_888_000)
+		Weight::from_parts(11_888_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	fn on_finalize() -> Weight {
 		// Minimum execution time: 6_987 nanoseconds.
-		Weight::from_ref_time(11_077_000)
+		Weight::from_parts(11_077_000, 0)
 	}
 }

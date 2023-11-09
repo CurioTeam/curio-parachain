@@ -60,7 +60,7 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	fn on_initialize_no_action() -> Weight {
 		// Minimum execution time: 47_758 nanoseconds.
-		Weight::from_ref_time(78_408_000)
+		Weight::from_parts(78_408_000, 0)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -71,7 +71,7 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	fn on_initialize_round_update() -> Weight {
 		// Minimum execution time: 51_271 nanoseconds.
-		Weight::from_ref_time(52_098_000)
+		Weight::from_parts(52_098_000, 0)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -82,14 +82,14 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	fn on_initialize_network_rewards() -> Weight {
 		// Minimum execution time: 45_532 nanoseconds.
-		Weight::from_ref_time(77_956_000)
+		Weight::from_parts(77_956_000, 0)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: ParachainStaking ForceNewRound (r:0 w:1)
 	fn force_new_round() -> Weight {
 		// Minimum execution time: 7_648 nanoseconds.
-		Weight::from_ref_time(7_981_000)
+		Weight::from_parts(7_981_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: ParachainStaking CandidatePool (r:3 w:0)
@@ -103,11 +103,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[0, 70]`.
 	fn set_inflation(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 1_499_975 nanoseconds.
-		Weight::from_ref_time(1_534_508_000)
+		Weight::from_parts(1_534_508_000, 0)
 			// Standard Error: 12_031_024
-			.saturating_add(Weight::from_ref_time(350_541_352).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(350_541_352, 0).saturating_mul(n.into()))
 			// Standard Error: 25_804_362
-			.saturating_add(Weight::from_ref_time(703_258_431).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(703_258_431, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(292))
 			.saturating_add(T::DbWeight::get().reads((52_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().reads((105_u64).saturating_mul(m.into())))
@@ -123,11 +123,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[0, 70]`.
 	fn set_max_selected_candidates(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 90_542 nanoseconds.
-		Weight::from_ref_time(91_579_000)
+		Weight::from_parts(91_579_000, 0)
 			// Standard Error: 722_663
-			.saturating_add(Weight::from_ref_time(18_206_068).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(18_206_068, 0).saturating_mul(n.into()))
 			// Standard Error: 1_552_099
-			.saturating_add(Weight::from_ref_time(31_832_486).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(31_832_486, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes(2))
@@ -135,7 +135,7 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	// Storage: ParachainStaking Round (r:1 w:1)
 	fn set_blocks_per_round() -> Weight {
 		// Minimum execution time: 32_193 nanoseconds.
-		Weight::from_ref_time(36_346_000)
+		Weight::from_parts(36_346_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -157,11 +157,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[0, 70]`.
 	fn force_remove_candidate(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 156_129 nanoseconds.
-		Weight::from_ref_time(158_224_000)
+		Weight::from_parts(158_224_000, 0)
 			// Standard Error: 742_790
-			.saturating_add(Weight::from_ref_time(15_467_160).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(15_467_160, 0).saturating_mul(n.into()))
 			// Standard Error: 1_599_194
-			.saturating_add(Weight::from_ref_time(59_347_166).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(59_347_166, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(15))
 			.saturating_add(T::DbWeight::get().reads((4_u64).saturating_mul(m.into())))
 			.saturating_add(T::DbWeight::get().writes(10))
@@ -180,11 +180,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[0, 70]`.
 	fn join_candidates(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 135_623 nanoseconds.
-		Weight::from_ref_time(137_262_000)
+		Weight::from_parts(137_262_000, 0)
 			// Standard Error: 677_724
-			.saturating_add(Weight::from_ref_time(14_500_849).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(14_500_849, 0).saturating_mul(n.into()))
 			// Standard Error: 1_444_676
-			.saturating_add(Weight::from_ref_time(30_778_733).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(30_778_733, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
@@ -197,11 +197,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[0, 70]`.
 	fn init_leave_candidates(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 115_859 nanoseconds.
-		Weight::from_ref_time(116_084_000)
+		Weight::from_parts(116_084_000, 0)
 			// Standard Error: 704_646
-			.saturating_add(Weight::from_ref_time(14_658_128).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(14_658_128, 0).saturating_mul(n.into()))
 			// Standard Error: 1_505_714
-			.saturating_add(Weight::from_ref_time(31_676_987).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(31_676_987, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -213,11 +213,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[0, 70]`.
 	fn cancel_leave_candidates(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 110_022 nanoseconds.
-		Weight::from_ref_time(110_801_000)
+		Weight::from_parts(110_801_000, 0)
 			// Standard Error: 706_898
-			.saturating_add(Weight::from_ref_time(14_868_282).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(14_868_282, 0).saturating_mul(n.into()))
 			// Standard Error: 1_510_526
-			.saturating_add(Weight::from_ref_time(31_812_199).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(31_812_199, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -238,11 +238,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[0, 70]`.
 	fn execute_leave_candidates(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 137_826 nanoseconds.
-		Weight::from_ref_time(139_139_000)
+		Weight::from_parts(139_139_000, 0)
 			// Standard Error: 753_588
-			.saturating_add(Weight::from_ref_time(16_347_445).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(16_347_445, 0).saturating_mul(n.into()))
 			// Standard Error: 1_610_294
-			.saturating_add(Weight::from_ref_time(60_454_871).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(60_454_871, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().reads((4_u64).saturating_mul(m.into())))
 			.saturating_add(T::DbWeight::get().writes(8))
@@ -265,11 +265,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `u` is `[0, 9]`.
 	fn candidate_stake_more(n: u32, m: u32, _u: u32, ) -> Weight {
 		// Minimum execution time: 158_634 nanoseconds.
-		Weight::from_ref_time(159_426_000)
+		Weight::from_parts(159_426_000, 0)
 			// Standard Error: 478_109
-			.saturating_add(Weight::from_ref_time(31_249_652).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(31_249_652, 0).saturating_mul(n.into()))
 			// Standard Error: 1_012_783
-			.saturating_add(Weight::from_ref_time(65_651_083).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(65_651_083, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
@@ -286,11 +286,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[0, 70]`.
 	fn candidate_stake_less(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 126_565 nanoseconds.
-		Weight::from_ref_time(128_378_000)
+		Weight::from_parts(128_378_000, 0)
 			// Standard Error: 704_733
-			.saturating_add(Weight::from_ref_time(15_534_252).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(15_534_252, 0).saturating_mul(n.into()))
 			// Standard Error: 1_502_250
-			.saturating_add(Weight::from_ref_time(33_151_401).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(33_151_401, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
@@ -310,11 +310,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[1, 69]`.
 	fn join_delegators(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 163_997 nanoseconds.
-		Weight::from_ref_time(165_291_000)
+		Weight::from_parts(165_291_000, 0)
 			// Standard Error: 700_812
-			.saturating_add(Weight::from_ref_time(15_759_258).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(15_759_258, 0).saturating_mul(n.into()))
 			// Standard Error: 1_523_875
-			.saturating_add(Weight::from_ref_time(33_136_258).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(33_136_258, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(9))
 	}
@@ -335,11 +335,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `u` is `[1, 9]`.
 	fn delegator_stake_more(n: u32, m: u32, _u: u32, ) -> Weight {
 		// Minimum execution time: 171_850 nanoseconds.
-		Weight::from_ref_time(172_538_000)
+		Weight::from_parts(172_538_000, 0)
 			// Standard Error: 459_785
-			.saturating_add(Weight::from_ref_time(32_373_423).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(32_373_423, 0).saturating_mul(n.into()))
 			// Standard Error: 1_000_289
-			.saturating_add(Weight::from_ref_time(68_972_020).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(68_972_020, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(9))
 	}
@@ -357,11 +357,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[1, 69]`.
 	fn delegator_stake_less(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 150_203 nanoseconds.
-		Weight::from_ref_time(151_303_000)
+		Weight::from_parts(151_303_000, 0)
 			// Standard Error: 716_585
-			.saturating_add(Weight::from_ref_time(16_298_430).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(16_298_430, 0).saturating_mul(n.into()))
 			// Standard Error: 1_558_172
-			.saturating_add(Weight::from_ref_time(33_676_170).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(33_676_170, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(10))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
@@ -379,11 +379,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[1, 69]`.
 	fn leave_delegators(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 160_251 nanoseconds.
-		Weight::from_ref_time(162_683_000)
+		Weight::from_parts(162_683_000, 0)
 			// Standard Error: 721_198
-			.saturating_add(Weight::from_ref_time(16_387_280).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(16_387_280, 0).saturating_mul(n.into()))
 			// Standard Error: 1_568_203
-			.saturating_add(Weight::from_ref_time(34_517_822).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(34_517_822, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(10))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
@@ -393,16 +393,16 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `u` is `[1, 9]`.
 	fn unlock_unstaked(u: u32, ) -> Weight {
 		// Minimum execution time: 47_019 nanoseconds.
-		Weight::from_ref_time(50_888_651)
+		Weight::from_parts(50_888_651, 0)
 			// Standard Error: 22_988
-			.saturating_add(Weight::from_ref_time(602_213).saturating_mul(u.into()))
+			.saturating_add(Weight::from_parts(602_213, 0).saturating_mul(u.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: ParachainStaking MaxCollatorCandidateStake (r:0 w:1)
 	fn set_max_candidate_stake() -> Weight {
 		// Minimum execution time: 24_312 nanoseconds.
-		Weight::from_ref_time(31_906_000)
+		Weight::from_parts(31_906_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: ParachainStaking DelegatorState (r:1 w:0)
@@ -413,7 +413,7 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	// Storage: ParachainStaking InflationConfig (r:1 w:0)
 	fn increment_delegator_rewards() -> Weight {
 		// Minimum execution time: 46_756 nanoseconds.
-		Weight::from_ref_time(47_461_000)
+		Weight::from_parts(47_461_000, 0)
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -425,7 +425,7 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	// Storage: ParachainStaking InflationConfig (r:1 w:0)
 	fn increment_collator_rewards() -> Weight {
 		// Minimum execution time: 43_048 nanoseconds.
-		Weight::from_ref_time(64_178_000)
+		Weight::from_parts(64_178_000, 0)
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -433,7 +433,7 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	fn claim_rewards() -> Weight {
 		// Minimum execution time: 58_251 nanoseconds.
-		Weight::from_ref_time(74_883_000)
+		Weight::from_parts(74_883_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -449,11 +449,11 @@ impl<T: frame_system::Config> parachain_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `m` is `[0, 70]`.
 	fn execute_scheduled_reward_change(n: u32, m: u32, ) -> Weight {
 		// Minimum execution time: 1_507_261 nanoseconds.
-		Weight::from_ref_time(1_517_973_000)
+		Weight::from_parts(1_517_973_000, 0)
 			// Standard Error: 11_926_415
-			.saturating_add(Weight::from_ref_time(349_538_730).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(349_538_730, 0).saturating_mul(n.into()))
 			// Standard Error: 25_579_994
-			.saturating_add(Weight::from_ref_time(711_352_766).saturating_mul(m.into()))
+			.saturating_add(Weight::from_parts(711_352_766, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(293))
 			.saturating_add(T::DbWeight::get().reads((52_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().reads((105_u64).saturating_mul(m.into())))

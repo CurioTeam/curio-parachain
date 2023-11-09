@@ -2,8 +2,8 @@ use sp_std::prelude::*;
 
 use collection_primitives::{
 	CreateCollectionData, CollectionMode, CollectionName,
-	CollectionDescription, CollectionTokenPrefix, CollectionPropertiesPermissionsVec,
-	CollectionPropertiesVec, CollectionFlags, Property, PropertyKeyPermission,
+	CollectionDescription, CollectionTokenPrefix, PropertiesPermissionsVec,
+	CollectionPropertiesVec, Property, PropertyKeyPermission,
 	PropertyValue, PropertyKey
 };
 
@@ -18,15 +18,6 @@ pub fn default_create_collection_data<T: frame_system::Config>() -> CreateCollec
 		vec![], 
 		vec![]
 	)
-}
-
-pub fn default_collection_flags() -> CollectionFlags {
-	CollectionFlags {
-		foreign: false,
-		erc721metadata: true,
-		external: false,
-		reserved: 0u8,
-	}
 }
 
 pub fn get_create_collection_data<T: frame_system::Config>(
@@ -45,12 +36,10 @@ pub fn get_create_collection_data<T: frame_system::Config>(
         name: CollectionName::truncate_from(name_u16_raw),
         description: CollectionDescription::truncate_from(description_u16_raw),
         token_prefix: CollectionTokenPrefix::truncate_from(token_prefix_u8_raw),
-        access: None,
         limits: None,
-        permissions: None,
         pending_sponsor: None,
         properties: CollectionPropertiesVec::truncate_from(properties),
-        token_property_permissions: CollectionPropertiesPermissionsVec::truncate_from(
+        property_permissions: PropertiesPermissionsVec::truncate_from(
             property_permissions,
         ),
     }

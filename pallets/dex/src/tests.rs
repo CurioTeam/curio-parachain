@@ -28,14 +28,29 @@
 
 #![cfg(test)]
 
-use super::*;
 use frame_support::{assert_noop, assert_ok};
-use mock::{
-	CGTETHPair, CGTDOTPair, DOTETHPair, DexModule, RuntimeEvent, ExtBuilder, ListingOrigin,
-	RuntimeOrigin, Runtime, System, Tokens, QTZ, ALICE, CGT, CGT_DOT_POOL_RECORD, BOB, ETH, DOT,
+use orml_traits::{MultiCurrency, MultiReservableCurrency};
+use sp_runtime::{
+	FixedPointNumber,
+	traits::{
+		BadOrigin, One
+	}
 };
-use orml_traits::MultiReservableCurrency;
-use sp_runtime::traits::BadOrigin;
+use crate::{
+	ProvisioningParameters, TradingPairStatus, Error,
+	InitialShareExchangeRates, LiquidityPool, Balance,
+	traits::{
+		DEXManager
+	},
+	types::{
+		ExchangeRate, 
+		SwapLimit
+	},
+	mock::{
+		CGTETHPair, CGTDOTPair, DOTETHPair, DexModule, RuntimeEvent, ExtBuilder, ListingOrigin,
+		RuntimeOrigin, Runtime, System, Tokens, QTZ, ALICE, CGT, CGT_DOT_POOL_RECORD, BOB, ETH, DOT,
+	}
+};
 
 #[test]
 fn list_provisioning_work() {

@@ -33,20 +33,38 @@ use sp_std::prelude::*;
 use orml_benchmarking::{runtime_benchmarks};
 use orml_traits::{MultiCurrencyExtended, MultiCurrency};
 
-use primitives::{CurrencyId, TradingPair, AccountId, TokenSymbol, Balance};
+use primitives::{AccountId, Balance};
 
-use pallet_dex::{TradingPairStatus};
+use pallet_dex::{
+	types::{
+		TradingPairStatus,
+		TradingPair,
+	}
+};
 
-use crate::{Runtime, Dex, System, RuntimeEvent, ExtendedProvisioningBlocks, Currencies};
+use crate::{
+	Runtime, 
+	Dex, 
+	System, 
+	RuntimeEvent, 
+	Currencies,
+	currency_id::{
+		CurrencyId,
+		TokenSymbol
+	},
+	dex::{
+		ExtendedProvisioningBlocks,
+	}
+};
 
 use super::utils::{token_unit};
 
 const CGT: CurrencyId = CurrencyId::Token(TokenSymbol::CGT);
 const DOT: CurrencyId = CurrencyId::Token(TokenSymbol::DOT);
-const QTZ: CurrencyId = CurrencyId::Token(TokenSymbol::QTZ);
+const DAI: CurrencyId = CurrencyId::Token(TokenSymbol::DAI);
 const ETH: CurrencyId = CurrencyId::Token(TokenSymbol::ETH);
 
-const CURRENCY_LIST: [CurrencyId; 4] = [CGT, DOT, QTZ, ETH];
+const CURRENCY_LIST: [CurrencyId; 4] = [CGT, DOT, DAI, ETH];
 
 const SEED: u32 = 0;
 

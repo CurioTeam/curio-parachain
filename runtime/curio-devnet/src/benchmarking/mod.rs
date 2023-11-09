@@ -25,7 +25,7 @@ pub mod pallet_dex;
 pub mod pallet_currencies;
 pub mod pallet_whitelist;
 pub mod pallet_refungible;
-//pub mod collections;
+pub mod transaction_pause;
 
 pub mod orml_tokens;
 pub mod utils;

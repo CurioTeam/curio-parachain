@@ -39,10 +39,7 @@ use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, RuntimeVersion, SharedParams, SubstrateCli,
 };
-use sc_service::{
-	config::{BasePath, PrometheusConfig},
-	TaskManager,
-};
+use sc_service::config::{BasePath, PrometheusConfig};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
 
@@ -371,22 +368,43 @@ pub fn run() -> Result<()> {
 				_ => Err("Benchmarking sub-command unsupported".into()),
 			}
 		},
+		#[cfg(feature = "try-runtime")]
 		Some(Subcommand::TryRuntime(cmd)) => {
-			if cfg!(feature = "try-runtime") {
-				let runner = cli.create_runner(cmd)?;
+			use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
+			use try_runtime_cli::block_building_info::timestamp_with_aura_info;
+			use default_runtime::node_imports::MILLISECS_PER_BLOCK;
 
-				// grab the task manager.
-				let registry = &runner.config().prometheus_config.as_ref().map(|cfg| &cfg.registry);
-				let task_manager =
-					TaskManager::new(runner.config().tokio_handle.clone(), *registry)
-						.map_err(|e| format!("Error: {:?}", e))?;
+			let runner = cli.create_runner(cmd)?;
 
-				runner.async_run(|config| {
-					Ok((cmd.run::<Block, DefaultRuntimeExecutor>(config), task_manager))
-				})
-			} else {
-				Err("Try-runtime must be enabled by `--features try-runtime`.".into())
-			}
+			type HostFunctionsOf<E> = ExtendedHostFunctions<
+				sp_io::SubstrateHostFunctions,
+				<E as NativeExecutionDispatch>::ExtendHostFunctions,
+			>;
+
+			// grab the task manager.
+			let registry = &runner
+				.config()
+				.prometheus_config
+				.as_ref()
+				.map(|cfg| &cfg.registry);
+			let task_manager =
+				sc_service::TaskManager::new(runner.config().tokio_handle.clone(), *registry)
+					.map_err(|e| format!("Error: {:?}", e))?;
+
+			let info_provider = timestamp_with_aura_info(MILLISECS_PER_BLOCK);
+
+			runner.async_run(|_| {
+				Ok((
+					cmd.run::<Block, HostFunctionsOf<DefaultRuntimeExecutor>, _>(Some(
+						info_provider,
+					)),
+					task_manager,
+				))
+			})
+		},
+		#[cfg(not(feature = "try-runtime"))]
+		Some(Subcommand::TryRuntime) => {
+			Err("Try-runtime must be enabled by `--features try-runtime`.".into())
 		},
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
@@ -416,7 +434,7 @@ pub fn run() -> Result<()> {
 				let id = ParaId::from(para_id);
 
 				let parachain_account =
-					AccountIdConversion::<polkadot_primitives::v2::AccountId>::into_account_truncating(&id);
+					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(&id);
 
 				let state_version = RelayChainCli::native_runtime_version(&config.chain_spec).state_version();
 				let block: Block = generate_genesis_block(&*config.chain_spec, state_version)

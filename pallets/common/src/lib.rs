@@ -73,8 +73,6 @@ use collection_primitives::{
 	COLLECTION_NUMBER_LIMIT,
 	Collection,
 	RpcCollection,
-	CollectionFlags,
-	RpcCollectionFlags,
 	CollectionId,
 	MAX_TOKEN_PREFIX_LENGTH,
 	COLLECTION_ADMINS_LIMIT,
@@ -103,7 +101,6 @@ use collection_primitives::{
 	TokenData,
 	TrySetProperty,
 	PropertyScope,
-	CollectionPermissions,
 };
 
 use pallet_whitelist::traits::WhitelistInterface;
@@ -128,20 +125,6 @@ macro_rules! limit_default {
 				$check
 			} else {
 				$new.$field = $old.$field
-			}
-		)*
-	}};
-}
-macro_rules! limit_default_clone {
-	($old:ident, $new:ident, $($field:ident $(($arg:expr))? => $check:expr),* $(,)?) => {{
-		$(
-			if let Some($new) = $new.$field.clone() {
-				let $old = $old.$field($($arg)?);
-				let _ = $new;
-				let _ = $old;
-				$check
-			} else {
-				$new.$field = $old.$field.clone()
 			}
 		)*
 	}};
@@ -189,7 +172,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::extra_constants]
@@ -326,6 +308,28 @@ pub mod pallet {
 			T::AccountId,
 			/// Current status (true = admin, false = not admin)
 			bool,
+		),
+
+		/// The sponsor of a collection has been set.
+		SponsorSet(
+			/// ID of collection to which sponsor has been set.
+			CollectionId,
+			/// Sponsor of a collection.
+			T::AccountId
+		),
+
+		/// The sponsor of a collection has been confirmed.
+		SponsorhipConfirmed(
+			/// ID of collection to which sponsor has been confirmed.
+			CollectionId,
+			/// Who confirmed sponsorship.
+			T::AccountId
+		),
+
+		/// The sponsor of a collection has been removed.
+		SponsorshipRemoved(
+			/// ID of collection from which sponsor has been removed.
+			CollectionId
 		)
 	}
 
@@ -416,6 +420,15 @@ pub mod pallet {
 
 		/// Tried to access an internal collection with an external API
 		CollectionIsInternal,
+
+		/// The same sponsor is already set
+		AccountAlreadySponsor,
+
+		/// Given sponsor account (call sender) is not unconfirmed one
+		NotUnconfirmedSponsor,
+
+		/// Sponsorship already disabled
+		SponsorshipAlreadyDisabled,
 	}
 
 	/// Storage of the count of created collections. Essentially contains the last collection ID.
@@ -447,10 +460,10 @@ pub mod pallet {
 		OnEmpty = collection_primitives::CollectionProperties,
 	>;
 
-	/// Storage of token property permissions of a collection.
+	/// Storage of property permissions of a collection.
 	#[pallet::storage]
 	#[pallet::getter(fn property_permissions)]
-	pub type CollectionPropertyPermissions<T> = StorageMap<
+	pub type PropertyPermissions<T> = StorageMap<
 		Hasher = Blake2_128Concat,
 		Key = CollectionId,
 		Value = PropertiesPermissionMap,
@@ -495,6 +508,29 @@ pub mod pallet {
 		QueryKind = OptionQuery,
 	>;
 
+	/// (Collection id (controlled?2), who created (real))
+	/// TODO: Off chain worker should remove from this map when collection gets removed
+	#[pallet::storage]
+	#[pallet::getter(fn create_item_busket)]
+	pub type CreateItemBasket<T: Config> = StorageMap<
+		Hasher = Blake2_128Concat,
+		Key = (CollectionId, T::AccountId),
+		Value = T::BlockNumber,
+		QueryKind = OptionQuery,
+	>;
+
+	/// Last sponsoring of token property setting // todo:doc rephrase this and the following
+	#[pallet::storage]
+	#[pallet::getter(fn token_property_basket)]
+	pub type TokenPropertyBasket<T: Config> = StorageDoubleMap<
+		Hasher1 = Blake2_128Concat,
+		Key1 = CollectionId,
+		Hasher2 = Blake2_128Concat,
+		Key2 = TokenId,
+		Value = T::BlockNumber,
+		QueryKind = OptionQuery,
+	>;
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 }
@@ -513,7 +549,6 @@ impl<T: Config> Pallet<T> {
 		owner: T::AccountId,
 		payer: T::AccountId,
 		data: CreateCollectionData<T::AccountId>,
-		flags: CollectionFlags,
 	) -> Result<CollectionId, DispatchError> {
 		
 		ensure!(
@@ -574,13 +609,6 @@ impl<T: Config> Pallet<T> {
 				.limits
 				.map(|limits| Self::clamp_limits(data.mode.clone(), &Default::default(), limits))
 				.unwrap_or_else(|| Ok(CollectionLimits::default()))?,
-			permissions: data
-				.permissions
-				.map(|permissions| {
-					Self::clamp_permissions(data.mode.clone(), &Default::default(), permissions)
-				})
-				.unwrap_or_else(|| Ok(CollectionPermissions::default()))?,
-			flags,
 		};
 
 		let mut collection_properties = collection_primitives::CollectionProperties::get();
@@ -590,12 +618,12 @@ impl<T: Config> Pallet<T> {
 
 		CollectionProperties::<T>::insert(id, collection_properties);
 
-		let mut token_props_permissions = PropertiesPermissionMap::new();
-		token_props_permissions
-			.try_set_from_iter(data.token_property_permissions.into_iter())
+		let mut props_permissions = PropertiesPermissionMap::new();
+		props_permissions
+			.try_set_from_iter(data.property_permissions.into_iter())
 			.map_err(<Error<T>>::from)?;
 
-		CollectionPropertyPermissions::<T>::insert(id, token_props_permissions);
+		PropertyPermissions::<T>::insert(id, props_permissions);
 
 		<CreatedCollectionCount<T>>::put(created_count);
 		<Pallet<T>>::deposit_event(Event::CollectionCreated(
@@ -779,7 +807,7 @@ impl<T: Config> Pallet<T> {
 		collection: CollectionId,
 		property_permission: PropertyKeyPermission,
 	) -> DispatchResult {
-		<CollectionPropertyPermissions<T>>::try_mutate(collection, |permissions| {
+		<PropertyPermissions<T>>::try_mutate(collection, |permissions| {
 			permissions.try_set(property_permission.key, property_permission.permission)
 		})
 		.map_err(<Error<T>>::from)?;
@@ -820,7 +848,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		collection.check_is_owner(sender)?;
 
-		let all_permissions = CollectionPropertyPermissions::<T>::get(collection.id);
+		let all_permissions = PropertyPermissions::<T>::get(collection.id);
 		let current_permission = all_permissions.get(&property_permission.key);
 		if matches![
 			current_permission,
@@ -829,7 +857,7 @@ impl<T: Config> Pallet<T> {
 			return Err(<Error<T>>::NoPermission.into());
 		}
 
-		CollectionPropertyPermissions::<T>::try_mutate(collection.id, |permissions| {
+		PropertyPermissions::<T>::try_mutate(collection.id, |permissions| {
 			let property_permission = property_permission.clone();
 			permissions.try_scoped_set(
 				scope,
@@ -1037,17 +1065,54 @@ impl<T: Config> Pallet<T> {
 		Ok(new_limit)
 	}
 
-	/// Merge set fields from `new_permission` to `old_permission`.
-	pub fn clamp_permissions(
-		_mode: CollectionMode,
-		old_permission: &CollectionPermissions,
-		mut new_permission: CollectionPermissions,
-	) -> Result<CollectionPermissions, DispatchError> {
-		limit_default_clone!(old_permission, new_permission,
-			access => {},
-			mint_mode => {}
-		);
-		Ok(new_permission)
+	// LOG: CrossAccountId -> AccountId
+	pub fn set_sponsor(
+		collection_id: CollectionId,
+		sender: &T::AccountId,
+		sponsor: T::AccountId
+	) -> DispatchResult {
+		let mut collection = CollectionHandle::<T>::try_get(collection_id)?;
+
+		collection.check_is_owner(sender)?;
+
+		collection.set_sponsor(sponsor.clone())?;
+
+		Self::deposit_event(Event::SponsorSet(collection.id, sponsor));
+
+		collection.save()?;
+		Ok(())
+	}
+
+	// LOG: CrossAccountId -> AccountId
+	pub fn confirm_sponsorship(
+		collection_id: CollectionId,
+		sender: &T::AccountId
+	) -> DispatchResult {
+		let mut collection = CollectionHandle::<T>::try_get(collection_id)?;
+
+		collection.confirm_sponsorship(sender)?;
+
+		Self::deposit_event(Event::SponsorhipConfirmed(collection.id, sender.clone()));
+
+		collection.save()?;
+		Ok(())
+	}
+
+	// LOG: CrossAccountId -> AccountId
+	pub fn remove_sponsor(
+		collection_id: CollectionId,
+		sender: &T::AccountId
+	) -> DispatchResult {
+		let mut collection = CollectionHandle::<T>::try_get(collection_id)?;
+
+		collection.check_is_owner(sender)?;
+
+		collection.remove_sponsor()?;
+
+		Self::deposit_event(Event::SponsorshipRemoved(collection.id));
+
+		collection.save()?;
+		Ok(())
 	}
 }
 
@@ -1131,11 +1196,9 @@ impl<T: Config> Pallet<T> {
 			token_prefix,
 			sponsorship,
 			limits,
-			permissions,
-			flags,
 		} = <CollectionById<T>>::get(collection)?;
 
-		let token_property_permissions = <CollectionPropertyPermissions<T>>::get(collection)
+		let property_permissions = <PropertyPermissions<T>>::get(collection)
 			.into_iter()
 			.map(|(key, permission)| PropertyKeyPermission { key, permission })
 			.collect();
@@ -1145,11 +1208,6 @@ impl<T: Config> Pallet<T> {
 			.map(|(key, value)| Property { key, value })
 			.collect();
 
-		let permissions = CollectionPermissions {
-			access: Some(permissions.access()),
-			mint_mode: Some(permissions.mint_mode())
-		};
-
 		Some(RpcCollection {
 			name: name.into_inner(),
 			description: description.into_inner(),
@@ -1158,15 +1216,8 @@ impl<T: Config> Pallet<T> {
 			token_prefix: token_prefix.into_inner(),
 			sponsorship,
 			limits,
-			permissions,
-			token_property_permissions,
+			property_permissions,
 			properties,
-			read_only: flags.external,
-
-			flags: RpcCollectionFlags {
-				foreign: flags.foreign,
-				erc721metadata: flags.erc721metadata,
-			},
 		})
 	}
 }

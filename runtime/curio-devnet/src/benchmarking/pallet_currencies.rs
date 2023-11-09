@@ -25,7 +25,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 use super::utils::{lookup_of_account, set_balance, NATIVE, STAKING, token_unit};
-use crate::{AccountId, Amount, Balance, Currencies, ExistentialDeposit, Runtime, TreasuryPalletId};
+use crate::{
+	AccountId, 
+	Amount, 
+	Balance, 
+	Currencies, 
+	Runtime,
+	monetary::{
+		ExistentialDeposit,
+		TreasuryPalletId,
+	},
+};
 
 use sp_std::prelude::*;
 
